@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Comet Sweep — 2026-10-09</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #070b16; color: #e8eefc; font-family: system-ui, sans-serif; }
+  body { display: grid; place-items: center; }
+  canvas { background: radial-gradient(circle at 50% 40%, #17233d, #070b16 70%); border-radius: 12px; box-shadow: 0 0 40px #0008; max-width: 96vw; max-height: 80vh; }
+  #hud { position: fixed; top: 12px; left: 16px; font-size: 14px; }
+  #help { position: fixed; bottom: 12px; left: 16px; opacity: .7; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="hud">Comet Sweep</div>
+<div id="help">Arrows / WASD to steer. Stars +10. Rocks end the run. R to restart.</div>
+<canvas id="c" width="800" height="500"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const keys = {};
+let best = Number(localStorage.getItem('comet-sweep-best') || 0);
+let ship, stars, rocks, score, alive, t;
+function reset() {
+  ship = { x: 400, y: 250, a: -Math.PI / 2, v: 0 };
+  stars = Array.from({ length: 8 }, () => ({ x: 40 + Math.random() * 720, y: 40 + Math.random() * 420, r: 7 }));
+  rocks = Array.from({ length: 5 }, () => ({ x: Math.random() * 800, y: Math.random() * 500, vx: (Math.random() * 2 - 1) * 1.6, vy: (Math.random() * 2 - 1) * 1.6, r: 16 + Math.random() * 18 }));
+  score = 0; alive = true; t = 0;
+}
+addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; if (e.key.toLowerCase() === 'r') reset(); });
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+function loop() {
+  t += 1;
+  if (alive) {
+    if (keys['arrowleft'] || keys['a']) ship.a -= 0.06;
+    if (keys['arrowright'] || keys['d']) ship.a += 0.06;
+    if (keys['arrowup'] || keys['w']) ship.v = Math.min(4.2, ship.v + 0.12);
+    else ship.v *= 0.985;
+    ship.x = (ship.x + Math.cos(ship.a) * ship.v + 800) % 800;
+    ship.y = (ship.y + Math.sin(ship.a) * ship.v + 500) % 500;
+    for (const s of stars) {
+      if (Math.hypot(s.x - ship.x, s.y - ship.y) < 18) {
+        score += 10;
+        s.x = 40 + Math.random() * 720; s.y = 40 + Math.random() * 420;
+        if (rocks.length < 12 && score % 30 === 0) rocks.push({ x: Math.random() * 800, y: Math.random() * 500, vx: (Math.random() * 2 - 1) * 1.6, vy: (Math.random() * 2 - 1) * 1.6, r: 16 + Math.random() * 18 });
+      }
+    }
+    for (const r of rocks) {
+      r.x = (r.x + r.vx + 800) % 800;
+      r.y = (r.y + r.vy + 500) % 500;
+      if (Math.hypot(r.x - ship.x, r.y - ship.y) < r.r + 8) alive = false;
+    }
+    if (score > best) { best = score; localStorage.setItem('comet-sweep-best', String(best)); }
+  }
+  ctx.clearRect(0, 0, 800, 500);
+  ctx.fillStyle = '#ffd76a';
+  for (const s of stars) { ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill(); }
+  ctx.fillStyle = '#6d7b93';
+  for (const r of rocks) { ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2); ctx.fill(); }
+  ctx.save(); ctx.translate(ship.x, ship.y); ctx.rotate(ship.a); ctx.fillStyle = alive ? '#7ee0ff' : '#ff6b6b';
+  ctx.beginPath(); ctx.moveTo(16, 0); ctx.lineTo(-12, 8); ctx.lineTo(-6, 0); ctx.lineTo(-12, -8); ctx.closePath(); ctx.fill(); ctx.restore();
+  hud.textContent = 'Comet Sweep — score ' + score + ' — best ' + best + (alive ? '' : ' — crashed, press R');
+  requestAnimationFrame(loop);
+}
+reset(); loop();
+</script>
+</body>
+</html>
