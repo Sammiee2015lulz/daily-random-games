@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gravity Flip — 2026-10-10</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0c1220; color: #e0f0ff; font-family: system-ui, sans-serif; }
+  body { display: grid; place-items: center; }
+  canvas { background: #121a2e; border-radius: 10px; box-shadow: 0 0 30px #0006; max-width: 96vw; max-height: 80vh; }
+  #hud { position: fixed; top: 12px; left: 16px; font-size: 14px; }
+  #help { position: fixed; bottom: 12px; left: 16px; opacity: .75; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="hud">Gravity Flip</div>
+<div id="help">A/D or ←→ move. Space flip gravity. Collect orbs. Avoid spikes. R restart.</div>
+<canvas id="c" width="640" height="400"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const keys = {};
+let best = Number(localStorage.getItem('gravity-flip-best') || 0);
+let player, platforms, orbs, spikes, score, alive, grav;
+
+function reset() {
+  player = { x: 100, y: 180, vx: 0, vy: 0, w: 18, h: 18 };
+  grav = 1;
+  platforms = [
+    { x: 0, y: 360, w: 640, h: 40 },
+    { x: 0, y: 0, w: 640, h: 30 },
+    { x: 180, y: 280, w: 120, h: 12 },
+    { x: 340, y: 200, w: 140, h: 12 },
+    { x: 80, y: 140, w: 100, h: 12 },
+    { x: 420, y: 100, w: 110, h: 12 },
+    { x: 240, y: 50, w: 90, h: 12 }
+  ];
+  orbs = [];
+  for (let i = 0; i < 6; i++) spawnOrb();
+  spikes = [
+    { x: 260, y: 348, w: 30, h: 12 },
+    { x: 480, y: 18, w: 40, h: 12 },
+    { x: 150, y: 128, w: 25, h: 12 }
+  ];
+  score = 0; alive = true;
+}
+function spawnOrb() {
+  orbs.push({ x: 40 + Math.random() * 560, y: 40 + Math.random() * 300, r: 6 });
+}
+addEventListener('keydown', e => {
+  keys[e.key.toLowerCase()] = true;
+  if (e.key === ' ' && alive) grav *= -1;
+  if (e.key.toLowerCase() === 'r') reset();
+});
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+function collides(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+function loop() {
+  if (alive) {
+    if (keys['arrowleft'] || keys['a']) player.vx = Math.max(-3.5, player.vx - 0.4);
+    else if (keys['arrowright'] || keys['d']) player.vx = Math.min(3.5, player.vx + 0.4);
+    else player.vx *= 0.85;
+    player.vy += 0.35 * grav;
+    player.x += player.vx;
+    player.y += player.vy;
+    player.x = Math.max(0, Math.min(640 - player.w, player.x));
+    // platform collisions
+    for (const p of platforms) {
+      if (collides(player, p)) {
+        if (grav > 0 && player.vy > 0 && player.y + player.h - player.vy <= p.y + 2) {
+          player.y = p.y - player.h; player.vy = 0;
+        } else if (grav < 0 && player.vy < 0 && player.y - player.vy >= p.y + p.h - 2) {
+          player.y = p.y + p.h; player.vy = 0;
+        } else if (player.vx > 0) player.x = p.x - player.w;
+        else if (player.vx < 0) player.x = p.x + p.w;
+      }
+    }
+    // orbs
+    for (let i = orbs.length - 1; i >= 0; i--) {
+      const o = orbs[i];
+      if (Math.hypot(o.x - (player.x + player.w/2), o.y - (player.y + player.h/2)) < o.r + 12) {
+        score += 10;
+        orbs.splice(i, 1);
+        spawnOrb();
+        if (score > best) { best = score; localStorage.setItem('gravity-flip-best', String(best)); }
+      }
+    }
+    // spikes
+    for (const s of spikes) {
+      if (collides(player, s)) alive = false;
+    }
+    if (player.y > 420 || player.y < -20) alive = false;
+  }
+  // draw
+  ctx.clearRect(0, 0, 640, 400);
+  ctx.fillStyle = '#2a3a5a';
+  for (const p of platforms) ctx.fillRect(p.x, p.y, p.w, p.h);
+  ctx.fillStyle = '#ff5a5a';
+  for (const s of spikes) ctx.fillRect(s.x, s.y, s.w, s.h);
+  ctx.fillStyle = '#ffe066';
+  for (const o of orbs) { ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, Math.PI*2); ctx.fill(); }
+  ctx.fillStyle = alive ? (grav > 0 ? '#6ee7ff' : '#ff9f6e') : '#888';
+  ctx.fillRect(player.x, player.y, player.w, player.h);
+  // gravity arrow
+  ctx.fillStyle = '#fff8';
+  ctx.beginPath();
+  if (grav > 0) { ctx.moveTo(20, 30); ctx.lineTo(30, 45); ctx.lineTo(10, 45); }
+  else { ctx.moveTo(20, 45); ctx.lineTo(30, 30); ctx.lineTo(10, 30); }
+  ctx.fill();
+  hud.textContent = 'Gravity Flip — score ' + score + ' — best ' + best + (alive ? '' : ' — game over, press R');
+  requestAnimationFrame(loop);
+}
+reset(); loop();
+</script>
+</body>
+</html>

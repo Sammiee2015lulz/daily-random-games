@@ -2,10 +2,10 @@
 
 A tiny original browser game lands here every day.
 
-- Latest: [Comet Sweep (2026-10-09)](games/2026-10-09/index.html)
+- Latest: [Gravity Flip (2026-10-10)](games/2026-10-10/index.html)
 
 Open the HTML file, or download it and open it in a browser.
 
-## Comet Sweep
+## Gravity Flip
 
-Arrows or WASD to steer. Stars are +10. Rocks end the run. Press R to restart.
+A/D or ←→ to move left/right. Space to flip gravity. Collect yellow orbs (+10). Avoid red spikes. Press R to restart.
