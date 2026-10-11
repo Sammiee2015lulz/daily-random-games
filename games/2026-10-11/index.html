@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sky Stack — 2026-10-11</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a0e17; color: #e0f7ff; font-family: system-ui, sans-serif; }
+  body { display: grid; place-items: center; }
+  canvas { background: linear-gradient(#15202b, #0a0e17); border-radius: 10px; box-shadow: 0 0 30px #0008; max-width: 96vw; max-height: 80vh; }
+  #hud { position: fixed; top: 12px; left: 16px; font-size: 14px; }
+  #help { position: fixed; bottom: 12px; left: 16px; opacity: .75; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="hud">Sky Stack</div>
+<div id="help">←→ or A/D move the falling block. Stack precisely. R restart.</div>
+<canvas id="c" width="400" height="600"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const keys = {};
+let best = Number(localStorage.getItem('sky-stack-best') || 0);
+let stack, falling, score, alive, speed, dropY;
+
+function reset() {
+  stack = [{ x: 100, y: 520, w: 200, h: 40 }];
+  falling = { x: 100, w: 200, h: 30 };
+  dropY = -30;
+  score = 0;
+  alive = true;
+  speed = 2.2;
+}
+function nextBlock() {
+  const last = stack[stack.length - 1];
+  falling.w = last.w;
+  falling.x = Math.max(0, Math.min(400 - falling.w, last.x + (Math.random() * 80 - 40)));
+  dropY = -30;
+  speed = Math.min(6, 2.2 + score * 0.08);
+}
+addEventListener('keydown', e => {
+  keys[e.key.toLowerCase()] = true;
+  if (e.key.toLowerCase() === 'r') reset();
+});
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+function loop() {
+  if (alive) {
+    if (keys['arrowleft'] || keys['a']) falling.x = Math.max(0, falling.x - 4);
+    if (keys['arrowright'] || keys['d']) falling.x = Math.min(400 - falling.w, falling.x + 4);
+    dropY += speed;
+    const last = stack[stack.length - 1];
+    if (dropY + falling.h >= last.y) {
+      const overlapLeft = Math.max(falling.x, last.x);
+      const overlapRight = Math.min(falling.x + falling.w, last.x + last.w);
+      const overlapW = overlapRight - overlapLeft;
+      if (overlapW < 18) {
+        alive = false;
+      } else {
+        falling.x = overlapLeft;
+        falling.w = overlapW;
+        stack.push({ x: falling.x, y: last.y - falling.h, w: falling.w, h: falling.h });
+        score++;
+        if (score > best) { best = score; localStorage.setItem('sky-stack-best', String(best)); }
+        // shift camera-like by moving stack up if high
+        if (stack[stack.length - 1].y < 200) {
+          for (const b of stack) b.y += 40;
+          dropY += 40;
+        }
+        nextBlock();
+      }
+    }
+  }
+  // draw
+  ctx.clearRect(0, 0, 400, 600);
+  // stars bg
+  ctx.fillStyle = '#ffffff22';
+  for (let i = 0; i < 40; i++) {
+    const sx = (i * 47) % 400;
+    const sy = (i * 91 + Date.now() / 50) % 600;
+    ctx.fillRect(sx, sy, 1, 1);
+  }
+  // stack
+  for (let i = 0; i < stack.length; i++) {
+    const b = stack[i];
+    const hue = 200 + (i * 15) % 80;
+    ctx.fillStyle = `hsl(${hue}, 70%, ${50 + (i % 3) * 8}%)`;
+    ctx.fillRect(b.x, b.y, b.w, b.h);
+    ctx.strokeStyle = '#fff4';
+    ctx.strokeRect(b.x, b.y, b.w, b.h);
+  }
+  // falling
+  if (alive) {
+    ctx.fillStyle = '#7ee0ff';
+    ctx.fillRect(falling.x, dropY, falling.w, falling.h);
+    ctx.strokeStyle = '#fff';
+    ctx.strokeRect(falling.x, dropY, falling.w, falling.h);
+  }
+  hud.textContent = 'Sky Stack — height ' + score + ' — best ' + best + (alive ? '' : ' — missed, press R');
+  requestAnimationFrame(loop);
+}
+reset();
+loop();
+</script>
+</body>
+</html>

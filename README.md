@@ -2,10 +2,10 @@
 
 A tiny original browser game lands here every day.
 
-- Latest: [Gravity Flip (2026-10-10)](games/2026-10-10/index.html)
+- Latest: [Sky Stack (2026-10-11)](games/2026-10-11/index.html)
 
 Open the HTML file, or download it and open it in a browser.
 
-## Gravity Flip
+## Sky Stack
 
-A/D or ←→ to move left/right. Space to flip gravity. Collect yellow orbs (+10). Avoid red spikes. Press R to restart.
+←→ or A/D move the falling block. Stack the overlapping portion precisely to build height. R to restart.
