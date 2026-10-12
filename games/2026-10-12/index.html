@@ -3,100 +3,136 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Neon Snake — 2026-10-12</title>
+<title>Lane Dash — 2026-10-12</title>
 <style>
-  html, body { margin: 0; height: 100%; background: #0a0a12; color: #e0ffe0; font-family: system-ui, sans-serif; }
+  html, body { margin: 0; height: 100%; background: #0b0e17; color: #e8f0ff; font-family: system-ui, sans-serif; }
   body { display: grid; place-items: center; }
-  canvas { background: #0f0f1a; border-radius: 10px; box-shadow: 0 0 40px #0f08; max-width: 96vw; max-height: 80vh; }
+  canvas { background: linear-gradient(#111828, #0b0e17); border-radius: 12px; box-shadow: 0 0 40px #0009; max-width: 96vw; max-height: 80vh; }
   #hud { position: fixed; top: 12px; left: 16px; font-size: 14px; }
   #help { position: fixed; bottom: 12px; left: 16px; opacity: .75; font-size: 13px; }
 </style>
 </head>
 <body>
-<div id="hud">Neon Snake</div>
-<div id="help">Arrows or WASD to turn. Eat orbs, avoid walls & self. R restart.</div>
-<canvas id="c" width="400" height="400"></canvas>
+<div id="hud">Lane Dash</div>
+<div id="help">← → or A/D switch lanes. Collect orbs, dodge blocks. R restart.</div>
+<canvas id="c" width="360" height="540"></canvas>
 <script>
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 const hud = document.getElementById('hud');
-const CELL = 20;
-const COLS = 20, ROWS = 20;
-let best = Number(localStorage.getItem('neon-snake-best') || 0);
-let snake, dir, nextDir, food, score, alive, tick;
+const LANE_W = 120;
+const LANES = 3;
+let best = Number(localStorage.getItem('lane-dash-best') || 0);
+let playerLane, items, score, alive, speed, spawnTimer, frame;
 
 function reset() {
-  snake = [{x: 10, y: 10}, {x: 9, y: 10}, {x: 8, y: 10}];
-  dir = {x: 1, y: 0};
-  nextDir = {x: 1, y: 0};
+  playerLane = 1;
+  items = [];
   score = 0;
   alive = true;
-  tick = 0;
-  placeFood();
+  speed = 2.4;
+  spawnTimer = 0;
+  frame = 0;
 }
-function placeFood() {
-  do {
-    food = {x: Math.floor(Math.random() * COLS), y: Math.floor(Math.random() * ROWS)};
-  } while (snake.some(s => s.x === food.x && s.y === food.y));
+function spawn() {
+  const lane = Math.floor(Math.random() * LANES);
+  const isOrb = Math.random() < 0.35;
+  items.push({
+    lane,
+    y: -30,
+    type: isOrb ? 'orb' : 'block',
+    r: isOrb ? 10 : 0,
+    w: isOrb ? 0 : 36,
+    h: isOrb ? 0 : 36
+  });
 }
 addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (k === 'r') { reset(); return; }
   if (!alive) return;
-  if ((k === 'arrowup' || k === 'w') && dir.y === 0) nextDir = {x: 0, y: -1};
-  if ((k === 'arrowdown' || k === 's') && dir.y === 0) nextDir = {x: 0, y: 1};
-  if ((k === 'arrowleft' || k === 'a') && dir.x === 0) nextDir = {x: -1, y: 0};
-  if ((k === 'arrowright' || k === 'd') && dir.x === 0) nextDir = {x: 1, y: 0};
+  if (k === 'arrowleft' || k === 'a') playerLane = Math.max(0, playerLane - 1);
+  if (k === 'arrowright' || k === 'd') playerLane = Math.min(LANES - 1, playerLane + 1);
 });
 
 function update() {
   if (!alive) return;
-  dir = nextDir;
-  const head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
-  if (head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS || snake.some(s => s.x === head.x && s.y === head.y)) {
-    alive = false;
-    return;
+  frame++;
+  speed = Math.min(7, 2.4 + frame * 0.0015);
+  score += 0.05;
+  spawnTimer++;
+  if (spawnTimer > Math.max(18, 40 - frame / 80)) {
+    spawn();
+    spawnTimer = 0;
   }
-  snake.unshift(head);
-  if (head.x === food.x && head.y === food.y) {
-    score++;
-    if (score > best) { best = score; localStorage.setItem('neon-snake-best', String(best)); }
-    placeFood();
-  } else {
-    snake.pop();
+  for (let i = items.length - 1; i >= 0; i--) {
+    const it = items[i];
+    it.y += speed;
+    const px = playerLane * LANE_W + LANE_W / 2;
+    const py = 480;
+    if (it.type === 'orb') {
+      if (Math.abs(it.lane - playerLane) < 0.1 && Math.abs(it.y - py) < 22) {
+        score += 15;
+        items.splice(i, 1);
+        continue;
+      }
+    } else {
+      if (it.lane === playerLane && it.y + 18 > py - 16 && it.y - 18 < py + 16) {
+        alive = false;
+      }
+    }
+    if (it.y > 580) items.splice(i, 1);
+  }
+  if (Math.floor(score) > best) {
+    best = Math.floor(score);
+    localStorage.setItem('lane-dash-best', String(best));
   }
 }
 
 function draw() {
-  ctx.fillStyle = '#0f0f1a';
-  ctx.fillRect(0, 0, 400, 400);
-  // grid subtle
-  ctx.strokeStyle = '#1a1a2a';
-  for (let i = 0; i <= COLS; i++) {
-    ctx.beginPath(); ctx.moveTo(i*CELL, 0); ctx.lineTo(i*CELL, 400); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, i*CELL); ctx.lineTo(400, i*CELL); ctx.stroke();
+  ctx.clearRect(0, 0, 360, 540);
+  // lanes
+  ctx.strokeStyle = '#1e2a44';
+  ctx.lineWidth = 2;
+  for (let i = 1; i < LANES; i++) {
+    ctx.beginPath();
+    ctx.moveTo(i * LANE_W, 0);
+    ctx.lineTo(i * LANE_W, 540);
+    ctx.stroke();
   }
-  // food
-  ctx.fillStyle = '#ff4d6d';
-  ctx.shadowColor = '#ff4d6d';
-  ctx.shadowBlur = 15;
-  ctx.fillRect(food.x * CELL + 2, food.y * CELL + 2, CELL - 4, CELL - 4);
+  // items
+  for (const it of items) {
+    const x = it.lane * LANE_W + LANE_W / 2;
+    if (it.type === 'orb') {
+      ctx.fillStyle = '#ffe066';
+      ctx.shadowColor = '#ffe066';
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.arc(x, it.y, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    } else {
+      ctx.fillStyle = '#ff4d6d';
+      ctx.shadowColor = '#ff4d6d';
+      ctx.shadowBlur = 10;
+      ctx.fillRect(x - 18, it.y - 18, 36, 36);
+      ctx.shadowBlur = 0;
+    }
+  }
+  // player
+  const px = playerLane * LANE_W + LANE_W / 2;
+  const py = 480;
+  ctx.fillStyle = alive ? '#6ee7ff' : '#666';
+  ctx.shadowColor = '#6ee7ff';
+  ctx.shadowBlur = alive ? 18 : 0;
+  ctx.beginPath();
+  ctx.arc(px, py, 14, 0, Math.PI * 2);
+  ctx.fill();
   ctx.shadowBlur = 0;
-  // snake
-  for (let i = 0; i < snake.length; i++) {
-    const s = snake[i];
-    const hue = 140 + i * 3;
-    ctx.fillStyle = `hsl(${hue}, 90%, ${50 + (i === 0 ? 10 : 0)}%)`;
-    if (i === 0) { ctx.shadowColor = '#39ff14'; ctx.shadowBlur = 20; }
-    ctx.fillRect(s.x * CELL + 1, s.y * CELL + 1, CELL - 2, CELL - 2);
-    ctx.shadowBlur = 0;
-  }
-  hud.textContent = 'Neon Snake — score ' + score + ' — best ' + best + (alive ? '' : ' — game over, press R');
+  hud.textContent = 'Lane Dash — score ' + Math.floor(score) + ' — best ' + best + (alive ? '' : ' — crashed, press R');
 }
 
 function loop() {
-  tick++;
-  if (tick % 8 === 0) update(); // speed
+  update();
   draw();
   requestAnimationFrame(loop);
 }
