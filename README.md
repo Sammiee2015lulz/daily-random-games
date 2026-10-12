@@ -2,10 +2,10 @@
 
 A tiny original browser game lands here every day.
 
-- Latest: [Sky Stack (2026-10-11)](games/2026-10-11/index.html)
+- Latest: [Neon Snake (2026-10-12)](games/2026-10-12/index.html)
 
 Open the HTML file, or download it and open it in a browser.
 
-## Sky Stack
+## Neon Snake
 
-←→ or A/D move the falling block. Stack the overlapping portion precisely to build height. R to restart.
+Arrows or WASD to turn. Eat orbs, avoid walls & self. R restart.
