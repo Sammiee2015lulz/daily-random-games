@@ -3,135 +3,98 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Star Catcher — 2026-10-13</title>
+<title>Neon Snake — 2026-10-13</title>
 <style>
-  html, body { margin: 0; height: 100%; background: #050814; color: #e0f0ff; font-family: system-ui, sans-serif; }
+  html, body { margin: 0; height: 100%; background: #0a0e17; color: #e0f7ff; font-family: system-ui, sans-serif; }
   body { display: grid; place-items: center; }
-  canvas { background: radial-gradient(circle at 50% 30%, #1a2a4a, #050814); border-radius: 12px; box-shadow: 0 0 50px #000a; max-width: 96vw; max-height: 80vh; }
+  canvas { background: #111828; border-radius: 12px; box-shadow: 0 0 40px #000a; max-width: 96vw; max-height: 80vh; }
   #hud { position: fixed; top: 12px; left: 16px; font-size: 14px; }
   #help { position: fixed; bottom: 12px; left: 16px; opacity: .75; font-size: 13px; }
 </style>
 </head>
 <body>
-<div id="hud">Star Catcher</div>
-<div id="help">← → or A/D move. Catch stars ★, dodge meteors. R restart.</div>
-<canvas id="c" width="400" height="520"></canvas>
+<div id="hud">Neon Snake</div>
+<div id="help">Arrows / WASD to turn. Eat the glow to grow. Avoid walls and yourself. R restart.</div>
+<canvas id="c" width="400" height="400"></canvas>
 <script>
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 const hud = document.getElementById('hud');
-let best = Number(localStorage.getItem('star-catcher-best') || 0);
-let playerX, items, score, alive, speed, spawnTimer, frame;
+const SIZE = 20;
+const COLS = 20;
+const ROWS = 20;
+let best = Number(localStorage.getItem('neon-snake-best') || 0);
+let snake, dir, nextDir, food, score, alive, tick;
 
+function spawnFood() {
+  let pos;
+  do {
+    pos = { x: Math.floor(Math.random() * COLS), y: Math.floor(Math.random() * ROWS) };
+  } while (snake.some(s => s.x === pos.x && s.y === pos.y));
+  return pos;
+}
 function reset() {
-  playerX = 200;
-  items = [];
+  snake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
+  dir = { x: 1, y: 0 };
+  nextDir = { ...dir };
+  food = spawnFood();
   score = 0;
   alive = true;
-  speed = 1.8;
-  spawnTimer = 0;
-  frame = 0;
-}
-function spawn() {
-  const isStar = Math.random() < 0.4;
-  items.push({
-    x: 30 + Math.random() * 340,
-    y: -20,
-    type: isStar ? 'star' : 'meteor',
-    size: isStar ? 12 : 16 + Math.random() * 8
-  });
+  tick = 0;
 }
 addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (k === 'r') { reset(); return; }
   if (!alive) return;
-  if (k === 'arrowleft' || k === 'a') playerX = Math.max(25, playerX - 18);
-  if (k === 'arrowright' || k === 'd') playerX = Math.min(375, playerX + 18);
+  if ((k === 'arrowup' || k === 'w') && dir.y === 0) nextDir = { x: 0, y: -1 };
+  if ((k === 'arrowdown' || k === 's') && dir.y === 0) nextDir = { x: 0, y: 1 };
+  if ((k === 'arrowleft' || k === 'a') && dir.x === 0) nextDir = { x: -1, y: 0 };
+  if ((k === 'arrowright' || k === 'd') && dir.x === 0) nextDir = { x: 1, y: 0 };
 });
 
 function update() {
   if (!alive) return;
-  frame++;
-  speed = Math.min(6, 1.8 + frame * 0.0012);
-  score += 0.03;
-  spawnTimer++;
-  if (spawnTimer > Math.max(15, 35 - frame / 100)) {
-    spawn();
-    spawnTimer = 0;
+  tick++;
+  if (tick % 6 !== 0) return;
+  dir = nextDir;
+  const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+  if (head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS ||
+      snake.some(s => s.x === head.x && s.y === head.y)) {
+    alive = false;
+    return;
   }
-  const py = 480;
-  for (let i = items.length - 1; i >= 0; i--) {
-    const it = items[i];
-    it.y += speed;
-    const dist = Math.abs(it.x - playerX);
-    if (it.type === 'star') {
-      if (dist < 22 && Math.abs(it.y - py) < 20) {
-        score += 20;
-        items.splice(i, 1);
-        continue;
-      }
-    } else {
-      if (dist < it.size + 8 && it.y + it.size > py - 12 && it.y - it.size < py + 12) {
-        alive = false;
-      }
+  snake.unshift(head);
+  if (head.x === food.x && head.y === food.y) {
+    score += 10;
+    food = spawnFood();
+    if (score > best) {
+      best = score;
+      localStorage.setItem('neon-snake-best', String(best));
     }
-    if (it.y > 540) items.splice(i, 1);
+  } else {
+    snake.pop();
   }
-  if (Math.floor(score) > best) {
-    best = Math.floor(score);
-    localStorage.setItem('star-catcher-best', String(best));
-  }
-}
-
-function drawStar(x, y, r) {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.fillStyle = '#ffeb3b';
-  ctx.shadowColor = '#ffeb3b';
-  ctx.shadowBlur = 15;
-  ctx.beginPath();
-  for (let i = 0; i < 5; i++) {
-    ctx.lineTo(Math.cos((i * 4 * Math.PI) / 5) * r, Math.sin((i * 4 * Math.PI) / 5) * r);
-  }
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
 }
 
 function draw() {
-  ctx.clearRect(0, 0, 400, 520);
-  // stars background faint
-  ctx.fillStyle = '#ffffff08';
-  for (let i = 0; i < 40; i++) {
-    ctx.fillRect(Math.sin(i * 12.3 + frame * 0.01) * 200 + 200, (i * 13 + frame) % 520, 1, 1);
-  }
-  // items
-  for (const it of items) {
-    if (it.type === 'star') {
-      drawStar(it.x, it.y, 10);
-    } else {
-      ctx.fillStyle = '#ff5722';
-      ctx.shadowColor = '#ff5722';
-      ctx.shadowBlur = 12;
-      ctx.beginPath();
-      ctx.arc(it.x, it.y, it.size, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-    }
-  }
-  // player ship
-  const py = 480;
-  ctx.fillStyle = alive ? '#4fc3f7' : '#555';
-  ctx.shadowColor = '#4fc3f7';
-  ctx.shadowBlur = alive ? 20 : 0;
-  ctx.beginPath();
-  ctx.moveTo(playerX, py - 16);
-  ctx.lineTo(playerX - 14, py + 10);
-  ctx.lineTo(playerX + 14, py + 10);
-  ctx.closePath();
-  ctx.fill();
+  ctx.clearRect(0, 0, 400, 400);
+  // food
+  ctx.fillStyle = '#ffeb3b';
+  ctx.shadowColor = '#ffeb3b';
+  ctx.shadowBlur = 15;
+  ctx.fillRect(food.x * SIZE + 2, food.y * SIZE + 2, SIZE - 4, SIZE - 4);
   ctx.shadowBlur = 0;
-  hud.textContent = 'Star Catcher — score ' + Math.floor(score) + ' — best ' + best + (alive ? '' : ' — boom! press R');
+  // snake
+  for (let i = 0; i < snake.length; i++) {
+    const s = snake[i];
+    const hue = 190 + (i * 8) % 40;
+    ctx.fillStyle = i === 0 ? '#4fc3f7' : `hsl(${hue}, 80%, ${55 - i % 10}%)`;
+    ctx.shadowColor = '#4fc3f7';
+    ctx.shadowBlur = i === 0 ? 12 : 4;
+    ctx.fillRect(s.x * SIZE + 1, s.y * SIZE + 1, SIZE - 2, SIZE - 2);
+    ctx.shadowBlur = 0;
+  }
+  hud.textContent = 'Neon Snake — score ' + score + ' — best ' + best + (alive ? '' : ' — crashed, press R');
 }
 
 function loop() {
