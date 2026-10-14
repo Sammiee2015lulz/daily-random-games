@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hue Catch — 2026-10-14</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a0e17; color: #e0f7ff; font-family: system-ui, sans-serif; }
+  body { display: grid; place-items: center; }
+  canvas { background: linear-gradient(#111828, #0a0e17); border-radius: 12px; box-shadow: 0 0 40px #000a; max-width: 96vw; max-height: 80vh; }
+  #hud { position: fixed; top: 12px; left: 16px; font-size: 14px; }
+  #help { position: fixed; bottom: 12px; left: 16px; opacity: .75; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="hud">Hue Catch</div>
+<div id="help">← → or A/D move. Catch matching color orbs. Avoid others. R restart.</div>
+<canvas id="c" width="400" height="500"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const COLORS = ['#ff4d6d', '#4dff88', '#4dc3ff', '#ffeb3b'];
+const COLOR_NAMES = ['red', 'green', 'blue', 'yellow'];
+let best = Number(localStorage.getItem('hue-catch-best') || 0);
+let player, orbs, score, alive, speed, spawnTimer, playerColor, frame;
+
+function reset() {
+  player = { x: 200, y: 450, w: 40, h: 20 };
+  orbs = [];
+  score = 0;
+  alive = true;
+  speed = 1.8;
+  spawnTimer = 0;
+  frame = 0;
+  playerColor = Math.floor(Math.random() * 4);
+}
+function spawn() {
+  const color = Math.floor(Math.random() * 4);
+  orbs.push({
+    x: 30 + Math.random() * 340,
+    y: -20,
+    r: 12,
+    color
+  });
+}
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (k === 'r') { reset(); return; }
+  if (!alive) return;
+  if (k === 'arrowleft' || k === 'a') player.x = Math.max(20, player.x - 8);
+  if (k === 'arrowright' || k === 'd') player.x = Math.min(380, player.x + 8);
+});
+
+function update() {
+  if (!alive) return;
+  frame++;
+  speed = Math.min(5, 1.8 + frame * 0.002);
+  score += 0.03;
+  spawnTimer++;
+  if (spawnTimer > Math.max(25, 50 - frame / 40)) {
+    spawn();
+    spawnTimer = 0;
+  }
+  // occasional color change
+  if (frame % 300 === 0 && score > 10) {
+    playerColor = Math.floor(Math.random() * 4);
+  }
+  for (let i = orbs.length - 1; i >= 0; i--) {
+    const o = orbs[i];
+    o.y += speed;
+    const dx = o.x - player.x;
+    const dy = o.y - player.y;
+    if (Math.hypot(dx, dy) < o.r + 18) {
+      if (o.color === playerColor) {
+        score += 20;
+        if (Math.floor(score) > best) {
+          best = Math.floor(score);
+          localStorage.setItem('hue-catch-best', String(best));
+        }
+      } else {
+        alive = false;
+      }
+      orbs.splice(i, 1);
+      continue;
+    }
+    if (o.y > 520) orbs.splice(i, 1);
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, 400, 500);
+  // orbs
+  for (const o of orbs) {
+    ctx.fillStyle = COLORS[o.color];
+    ctx.shadowColor = COLORS[o.color];
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+  // player
+  ctx.fillStyle = alive ? COLORS[playerColor] : '#666';
+  ctx.shadowColor = COLORS[playerColor];
+  ctx.shadowBlur = alive ? 15 : 0;
+  ctx.fillRect(player.x - player.w/2, player.y - player.h/2, player.w, player.h);
+  ctx.shadowBlur = 0;
+  // player indicator
+  if (alive) {
+    ctx.fillStyle = '#fff';
+    ctx.font = '12px system-ui';
+    ctx.fillText(COLOR_NAMES[playerColor], player.x - 20, player.y + 30);
+  }
+  hud.textContent = 'Hue Catch — score ' + Math.floor(score) + ' — best ' + best + (alive ? ' — color: ' + COLOR_NAMES[playerColor] : ' — wrong color, press R');
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+reset();
+loop();
+</script>
+</body>
+</html>

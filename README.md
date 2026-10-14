@@ -2,10 +2,10 @@
 
 A tiny original browser game lands here every day.
 
-- Latest: [Neon Snake (2026-10-13)](games/2026-10-13/index.html)
+- Latest: [Hue Catch (2026-10-14)](games/2026-10-14/index.html)
 
 Open the HTML file, or download it and open it in a browser.
 
-## Neon Snake
+## Hue Catch
 
-Arrows / WASD to turn. Eat the glow to grow. Avoid walls and yourself. R restart.
+← → or A/D move. Catch matching color orbs. Avoid others. R restart.
