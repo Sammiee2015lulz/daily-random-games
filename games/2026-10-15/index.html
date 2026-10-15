@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gravity Flip — 2026-10-15</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0c1220; color: #d0e8ff; font-family: system-ui, sans-serif; }
+  body { display: grid; place-items: center; }
+  canvas { background: linear-gradient(#101828, #0c1220); border-radius: 12px; box-shadow: 0 0 40px #000a; max-width: 96vw; max-height: 80vh; }
+  #hud { position: fixed; top: 12px; left: 16px; font-size: 14px; }
+  #help { position: fixed; bottom: 12px; left: 16px; opacity: .75; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="hud">Gravity Flip</div>
+<div id="help">← → or A/D move. Space flip gravity. Collect yellow, avoid red. R restart.</div>
+<canvas id="c" width="480" height="640"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const W = 480, H = 640;
+let best = Number(localStorage.getItem('gravity-flip-best') || 0);
+let player, gravity, orbs, hazards, score, alive, frame, keys = {};
+
+function reset() {
+  player = { x: W/2, y: H/2, vy: 0, w: 22, h: 22 };
+  gravity = 1; // 1 down, -1 up
+  orbs = [];
+  hazards = [];
+  score = 0;
+  alive = true;
+  frame = 0;
+  for (let i = 0; i < 4; i++) spawnOrb();
+  for (let i = 0; i < 3; i++) spawnHazard();
+}
+function spawnOrb() {
+  orbs.push({ x: 40 + Math.random() * (W-80), y: 40 + Math.random() * (H-80), r: 9 });
+}
+function spawnHazard() {
+  hazards.push({ x: 30 + Math.random() * (W-60), y: 30 + Math.random() * (H-60), w: 28 + Math.random()*20, h: 16 + Math.random()*12 });
+}
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if (k === 'r') { reset(); return; }
+  if (k === ' ' || k === 'space') { e.preventDefault(); if (alive) gravity *= -1; }
+});
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+function update() {
+  if (!alive) return;
+  frame++;
+  score += 0.04;
+  // horizontal
+  if (keys['arrowleft'] || keys['a']) player.x -= 4.2;
+  if (keys['arrowright'] || keys['d']) player.x += 4.2;
+  player.x = Math.max(14, Math.min(W-14, player.x));
+  // gravity
+  player.vy += gravity * 0.28;
+  player.vy = Math.max(-6.5, Math.min(6.5, player.vy));
+  player.y += player.vy;
+  if (player.y < 14 || player.y > H-14) alive = false;
+  // collect
+  for (let i = orbs.length - 1; i >= 0; i--) {
+    const o = orbs[i];
+    if (Math.hypot(o.x - player.x, o.y - player.y) < 20) {
+      score += 12;
+      orbs.splice(i, 1);
+      spawnOrb();
+    }
+  }
+  // hazards
+  for (const h of hazards) {
+    if (player.x + 11 > h.x && player.x - 11 < h.x + h.w &&
+        player.y + 11 > h.y && player.y - 11 < h.y + h.h) {
+      alive = false;
+    }
+  }
+  // occasional new hazard
+  if (frame % 420 === 0 && hazards.length < 8) spawnHazard();
+  if (Math.floor(score) > best) {
+    best = Math.floor(score);
+    localStorage.setItem('gravity-flip-best', String(best));
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  // subtle gravity indicator
+  ctx.fillStyle = gravity > 0 ? 'rgba(100,180,255,0.08)' : 'rgba(255,180,100,0.08)';
+  ctx.fillRect(0, gravity > 0 ? H-40 : 0, W, 40);
+  // hazards
+  ctx.fillStyle = '#ff4d6d';
+  ctx.shadowColor = '#ff4d6d';
+  ctx.shadowBlur = 8;
+  for (const h of hazards) ctx.fillRect(h.x, h.y, h.w, h.h);
+  ctx.shadowBlur = 0;
+  // orbs
+  ctx.fillStyle = '#ffe066';
+  ctx.shadowColor = '#ffe066';
+  ctx.shadowBlur = 12;
+  for (const o of orbs) {
+    ctx.beginPath();
+    ctx.arc(o.x, o.y, o.r, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.shadowBlur = 0;
+  // player
+  ctx.fillStyle = alive ? (gravity > 0 ? '#6ee7ff' : '#ffa64d') : '#555';
+  ctx.shadowColor = alive ? (gravity > 0 ? '#6ee7ff' : '#ffa64d') : 'transparent';
+  ctx.shadowBlur = alive ? 14 : 0;
+  ctx.fillRect(player.x - 11, player.y - 11, 22, 22);
+  ctx.shadowBlur = 0;
+  hud.textContent = 'Gravity Flip — score ' + Math.floor(score) + ' — best ' + best + (alive ? '' : ' — crashed, press R');
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+reset();
+loop();
+</script>
+</body>
+</html>

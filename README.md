@@ -2,10 +2,10 @@
 
 A tiny original browser game lands here every day.
 
-- Latest: [Hue Catch (2026-10-14)](games/2026-10-14/index.html)
+- Latest: [Gravity Flip (2026-10-15)](games/2026-10-15/index.html)
 
 Open the HTML file, or download it and open it in a browser.
 
-## Hue Catch
+## Gravity Flip
 
-← → or A/D move. Catch matching color orbs. Avoid others. R restart.
+← → or A/D move. Space flip gravity. Collect yellow, avoid red. R restart.
