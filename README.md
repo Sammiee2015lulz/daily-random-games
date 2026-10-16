@@ -2,10 +2,10 @@
 
 A tiny original browser game lands here every day.
 
-- Latest: [Gravity Flip (2026-10-15)](games/2026-10-15/index.html)
+- Latest: [Chain Burst (2026-10-16)](games/2026-10-16/index.html)
 
 Open the HTML file, or download it and open it in a browser.
 
-## Gravity Flip
+## Chain Burst
 
-← → or A/D move. Space flip gravity. Collect yellow, avoid red. R restart.
+Click groups of 3+ same color to clear. Score rises with bigger chains. R restart.
