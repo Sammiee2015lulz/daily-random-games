@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chain Burst — 2026-10-16</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a0e17; color: #e0f7ff; font-family: system-ui, sans-serif; }
+  body { display: grid; place-items: center; }
+  canvas { background: #111828; border-radius: 12px; box-shadow: 0 0 40px #000a; max-width: 96vw; max-height: 80vh; cursor: pointer; }
+  #hud { position: fixed; top: 12px; left: 16px; font-size: 14px; }
+  #help { position: fixed; bottom: 12px; left: 16px; opacity: .75; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="hud">Chain Burst</div>
+<div id="help">Click groups of 3+ same color to clear. Score rises with bigger chains. R restart.</div>
+<canvas id="c" width="400" height="500"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const COLS = 8, ROWS = 10, CELL = 50;
+const COLORS = ['#ff4d6d', '#4dff88', '#4dc3ff', '#ffe066', '#c77dff'];
+let best = Number(localStorage.getItem('chain-burst-best') || 0);
+let grid, score, moves;
+
+function randomColor() { return Math.floor(Math.random() * COLORS.length); }
+function reset() {
+  grid = Array.from({ length: ROWS }, () => Array.from({ length: COLS }, randomColor));
+  score = 0;
+  moves = 0;
+  // ensure at least one possible move
+  while (!hasMoves()) {
+    grid = Array.from({ length: ROWS }, () => Array.from({ length: COLS }, randomColor));
+  }
+}
+function hasMoves() {
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      if (getGroup(x, y).length >= 3) return true;
+    }
+  }
+  return false;
+}
+function getGroup(sx, sy) {
+  const color = grid[sy][sx];
+  if (color < 0) return [];
+  const group = [];
+  const visited = Array.from({ length: ROWS }, () => Array(COLS).fill(false));
+  function flood(x, y) {
+    if (x < 0 || x >= COLS || y < 0 || y >= ROWS || visited[y][x] || grid[y][x] !== color) return;
+    visited[y][x] = true;
+    group.push({ x, y });
+    flood(x+1, y); flood(x-1, y); flood(x, y+1); flood(x, y-1);
+  }
+  flood(sx, sy);
+  return group;
+}
+function applyGravity() {
+  for (let x = 0; x < COLS; x++) {
+    let write = ROWS - 1;
+    for (let y = ROWS - 1; y >= 0; y--) {
+      if (grid[y][x] >= 0) {
+        grid[write][x] = grid[y][x];
+        if (write !== y) grid[y][x] = -1;
+        write--;
+      }
+    }
+    for (let y = write; y >= 0; y--) grid[y][x] = randomColor();
+  }
+}
+canvas.addEventListener('click', e => {
+  const rect = canvas.getBoundingClientRect();
+  const x = Math.floor((e.clientX - rect.left) * (canvas.width / rect.width) / CELL);
+  const y = Math.floor((e.clientY - rect.top) * (canvas.height / rect.height) / CELL);
+  if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return;
+  const group = getGroup(x, y);
+  if (group.length >= 3) {
+    for (const p of group) grid[p.y][p.x] = -1;
+    score += group.length * group.length;
+    moves++;
+    applyGravity();
+    if (score > best) {
+      best = score;
+      localStorage.setItem('chain-burst-best', String(best));
+    }
+    if (!hasMoves()) {
+      // game over effectively, but allow restart
+    }
+  }
+});
+addEventListener('keydown', e => {
+  if (e.key.toLowerCase() === 'r') reset();
+});
+
+function draw() {
+  ctx.clearRect(0, 0, 400, 500);
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      const c = grid[y][x];
+      if (c >= 0) {
+        ctx.fillStyle = COLORS[c];
+        ctx.shadowColor = COLORS[c];
+        ctx.shadowBlur = 8;
+        ctx.fillRect(x * CELL + 4, y * CELL + 4, CELL - 8, CELL - 8);
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#ffffff22';
+        ctx.strokeRect(x * CELL + 4, y * CELL + 4, CELL - 8, CELL - 8);
+      }
+    }
+  }
+  const status = hasMoves() ? '' : ' — no more moves';
+  hud.textContent = 'Chain Burst — score ' + score + ' — best ' + best + status;
+  requestAnimationFrame(draw);
+}
+reset();
+draw();
+</script>
+</body>
+</html>
