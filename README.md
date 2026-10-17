@@ -2,10 +2,10 @@
 
 A tiny original browser game lands here every day.
 
-- Latest: [Chain Burst (2026-10-16)](games/2026-10-16/index.html)
+- Latest: [Orbit Shield (2026-10-17)](games/2026-10-17/index.html)
 
 Open the HTML file, or download it and open it in a browser.
 
-## Chain Burst
+## Orbit Shield
 
-Click groups of 3+ same color to clear. Score rises with bigger chains. R restart.
+← → or A/D rotate the shield. Catch green orbs, block red meteors so they don't hit the core. R restart.
