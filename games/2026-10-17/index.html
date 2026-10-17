@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Orbit Shield — 2026-10-17</title>
+<title>Swing Shot — 2026-10-17</title>
 <style>
   html, body { margin: 0; height: 100%; background: #0a0e17; color: #e0f7ff; font-family: system-ui, sans-serif; }
   body { display: grid; place-items: center; }
@@ -13,113 +13,138 @@
 </style>
 </head>
 <body>
-<div id="hud">Orbit Shield</div>
-<div id="help">← → or A/D rotate shield. Catch green, block red. R restart.</div>
+<div id="hud">Swing Shot</div>
+<div id="help">Space to release the swinging orb. Hit the targets. R restart.</div>
 <canvas id="c" width="480" height="480"></canvas>
 <script>
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 const hud = document.getElementById('hud');
-const W = 480, H = 480, CX = 240, CY = 240;
-let best = Number(localStorage.getItem('orbit-shield-best') || 0);
-let angle, objects, score, alive, frame, spawnTimer;
+const W = 480, H = 480;
+let best = Number(localStorage.getItem('swing-shot-best') || 0);
+let attached, angle, angVel, ball, targets, score, alive, frame, pivot;
 
 function reset() {
-  angle = 0;
-  objects = [];
+  pivot = { x: 240, y: 60 };
+  attached = true;
+  angle = -0.8;
+  angVel = 0;
+  ball = { x: 0, y: 0, vx: 0, vy: 0, r: 10 };
+  targets = [];
   score = 0;
   alive = true;
   frame = 0;
-  spawnTimer = 0;
+  for (let i = 0; i < 4; i++) spawnTarget();
+  updateBallPos();
 }
-function spawn() {
-  const type = Math.random() < 0.55 ? 'orb' : 'meteor';
-  const a = Math.random() * Math.PI * 2;
-  objects.push({
-    type,
-    angle: a,
-    dist: 220,
-    speed: 0.6 + Math.random() * 0.8 + frame * 0.001,
-    r: type === 'orb' ? 8 : 11
+function spawnTarget() {
+  targets.push({
+    x: 80 + Math.random() * 320,
+    y: 180 + Math.random() * 250,
+    r: 16,
+    hue: Math.floor(Math.random() * 360)
   });
+}
+function updateBallPos() {
+  if (attached) {
+    const len = 140;
+    ball.x = pivot.x + Math.sin(angle) * len;
+    ball.y = pivot.y + Math.cos(angle) * len;
+  }
 }
 addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (k === 'r') { reset(); return; }
   if (!alive) return;
-  if (k === 'arrowleft' || k === 'a') angle -= 0.08;
-  if (k === 'arrowright' || k === 'd') angle += 0.08;
+  if (k === ' ' || k === 'space') {
+    e.preventDefault();
+    if (attached) {
+      // release: velocity from angular
+      const len = 140;
+      const speed = angVel * len;
+      ball.vx = Math.cos(angle) * speed;
+      ball.vy = -Math.sin(angle) * speed;
+      attached = false;
+    }
+  }
 });
 
 function update() {
   if (!alive) return;
   frame++;
-  score += 0.05;
-  spawnTimer++;
-  const interval = Math.max(18, 45 - frame / 30);
-  if (spawnTimer > interval) {
-    spawn();
-    spawnTimer = 0;
-  }
-  const shieldAngle = angle % (Math.PI * 2);
-  for (let i = objects.length - 1; i >= 0; i--) {
-    const o = objects[i];
-    o.dist -= o.speed;
-    if (o.dist < 42) {
-      // check if shield covers it
-      let da = Math.abs(((o.angle - shieldAngle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI);
-      da = Math.min(da, Math.PI * 2 - da);
-      const covered = da < 0.55; // shield arc ~63 degrees
-      if (o.type === 'orb') {
-        if (covered) {
-          score += 25;
-          if (Math.floor(score) > best) {
-            best = Math.floor(score);
-            localStorage.setItem('orbit-shield-best', String(best));
-          }
+  if (attached) {
+    // simple pendulum approximation
+    const g = 0.008;
+    angVel += -Math.sin(angle) * g;
+    angVel *= 0.995;
+    angle += angVel;
+    updateBallPos();
+  } else {
+    ball.x += ball.vx;
+    ball.y += ball.vy;
+    ball.vx *= 0.99;
+    ball.vy *= 0.99;
+    // check targets
+    for (let i = targets.length - 1; i >= 0; i--) {
+      const t = targets[i];
+      if (Math.hypot(ball.x - t.x, ball.y - t.y) < ball.r + t.r) {
+        score += 25;
+        targets.splice(i, 1);
+        spawnTarget();
+        if (Math.floor(score) > best) {
+          best = Math.floor(score);
+          localStorage.setItem('swing-shot-best', String(best));
         }
-      } else { // meteor
-        if (!covered) alive = false;
+        // reattach after hit
+        attached = true;
+        angle = Math.atan2(ball.x - pivot.x, ball.y - pivot.y);
+        angVel = 0;
+        updateBallPos();
+        break;
       }
-      objects.splice(i, 1);
+    }
+    // miss if off screen
+    if (ball.x < -20 || ball.x > W + 20 || ball.y < -20 || ball.y > H + 20) {
+      alive = false;
     }
   }
 }
 
 function draw() {
   ctx.clearRect(0, 0, W, H);
-  // planet
-  ctx.fillStyle = '#4dc3ff';
-  ctx.shadowColor = '#4dc3ff';
-  ctx.shadowBlur = 20;
+  // pivot
+  ctx.fillStyle = '#888';
   ctx.beginPath();
-  ctx.arc(CX, CY, 28, 0, Math.PI * 2);
+  ctx.arc(pivot.x, pivot.y, 6, 0, Math.PI * 2);
   ctx.fill();
-  ctx.shadowBlur = 0;
-  // shield
-  if (alive) {
-    ctx.strokeStyle = '#4dff88';
-    ctx.lineWidth = 6;
-    ctx.shadowColor = '#4dff88';
-    ctx.shadowBlur = 12;
+  // string if attached
+  if (attached && alive) {
+    ctx.strokeStyle = '#4dc3ff';
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(CX, CY, 48, angle - 0.55, angle + 0.55);
+    ctx.moveTo(pivot.x, pivot.y);
+    ctx.lineTo(ball.x, ball.y);
     ctx.stroke();
-    ctx.shadowBlur = 0;
   }
-  // objects
-  for (const o of objects) {
-    const x = CX + Math.cos(o.angle) * o.dist;
-    const y = CY + Math.sin(o.angle) * o.dist;
-    ctx.fillStyle = o.type === 'orb' ? '#4dff88' : '#ff4d6d';
+  // targets
+  for (const t of targets) {
+    ctx.fillStyle = `hsl(${t.hue}, 70%, 55%)`;
     ctx.shadowColor = ctx.fillStyle;
     ctx.shadowBlur = 10;
     ctx.beginPath();
-    ctx.arc(x, y, o.r, 0, Math.PI * 2);
+    ctx.arc(t.x, t.y, t.r, 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
   }
-  hud.textContent = 'Orbit Shield — score ' + Math.floor(score) + ' — best ' + best + (alive ? '' : ' — core hit, press R');
+  // ball
+  ctx.fillStyle = alive ? '#ffe066' : '#666';
+  ctx.shadowColor = '#ffe066';
+  ctx.shadowBlur = alive ? 15 : 0;
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  hud.textContent = 'Swing Shot — score ' + Math.floor(score) + ' — best ' + best + (alive ? '' : ' — missed, press R');
 }
 
 function loop() {
