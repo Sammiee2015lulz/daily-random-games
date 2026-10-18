@@ -1,108 +1,114 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Star Catcher - Daily Game 2026-10-18</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shaft Dive — 2026-10-18</title>
 <style>
-body { margin:0; background:#020208; color:#fff; font-family:Arial,sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden; }
-canvas { border:2px solid #4af; box-shadow:0 0 30px #4af; background:linear-gradient(#001, #000); }
-#info { position:absolute; top:10px; left:10px; text-shadow:0 0 5px #4af; }
+  html, body { margin: 0; height: 100%; background: #070b12; color: #c8e6ff; font-family: system-ui, sans-serif; }
+  body { display: grid; place-items: center; }
+  canvas { background: linear-gradient(#0d1524, #070b12); border-radius: 12px; box-shadow: 0 0 40px #000a; max-width: 96vw; max-height: 80vh; }
+  #hud { position: fixed; top: 12px; left: 16px; font-size: 14px; }
+  #help { position: fixed; bottom: 12px; left: 16px; opacity: .75; font-size: 13px; }
 </style>
 </head>
 <body>
-<div id="info">Score: <span id="s">0</span> | Missed: <span id="m">0</span>/3 | Click or Space to start</div>
-<canvas id="c" width="600" height="700"></canvas>
+<div id="hud">Shaft Dive</div>
+<div id="help">← → or A/D move. Avoid rising obstacles. Survive as long as you can. R restart.</div>
+<canvas id="c" width="400" height="600"></canvas>
 <script>
-const c = document.getElementById('c'), x = c.getContext('2d');
-let px = 300, py = 620, score = 0, missed = 0, running = false, items = [], keys = {};
-const sEl = document.getElementById('s'), mEl = document.getElementById('m');
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const W = 400, H = 600;
+let best = Number(localStorage.getItem('shaft-dive-best') || 0);
+let player, obstacles, score, alive, frame, speed, keys = {};
 
-function spawn() {
-  const good = Math.random() > 0.25;
-  items.push({
-    x: Math.random()*540+30, y: -20,
-    r: 12 + Math.random()*8,
-    vy: 2 + Math.random()*2 + score*0.05,
-    good,
-    color: good ? `hsl(${40+Math.random()*20},100%,60%)` : '#f44'
+function reset() {
+  player = { x: W / 2, y: H - 80, r: 12 };
+  obstacles = [];
+  score = 0;
+  alive = true;
+  frame = 0;
+  speed = 2.2;
+  for (let i = 0; i < 5; i++) spawnObstacle(true);
+}
+function spawnObstacle(initial = false) {
+  const w = 40 + Math.random() * 60;
+  obstacles.push({
+    x: Math.random() * (W - w),
+    y: initial ? Math.random() * H * 0.7 : -30 - Math.random() * 80,
+    w,
+    h: 18 + Math.random() * 22,
+    vy: speed + Math.random() * 1.2
   });
 }
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if (k === 'r') reset();
+});
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 
-function loop() {
-  x.fillStyle = 'rgba(0,0,10,0.2)';
-  x.fillRect(0,0,600,700);
-  // stars
-  x.fillStyle = '#fff';
-  for(let i=0;i<30;i++) x.fillRect(Math.random()*600, Math.random()*700, 1,1);
-
-  if (running) {
-    if (keys['ArrowLeft'] || keys['a']) px -= 6;
-    if (keys['ArrowRight'] || keys['d']) px += 6;
-    px = Math.max(30, Math.min(570, px));
-
-    items.forEach((it,i) => {
-      it.y += it.vy;
-      if (it.y > 720) {
-        if (it.good) missed++;
-        items.splice(i,1);
-        if (missed >= 3) running = false;
-      }
-      if (Math.hypot(it.x - px, it.y - py) < it.r + 25) {
-        if (it.good) score += 10; else { score = Math.max(0,score-20); missed++; }
-        items.splice(i,1);
-        if (missed >= 3) running = false;
-      }
-    });
-    if (Math.random() < 0.03) spawn();
-  }
-
-  // player net
-  x.strokeStyle = '#4af';
-  x.lineWidth = 4;
-  x.beginPath();
-  x.arc(px, py, 30, 0, Math.PI*2);
-  x.stroke();
-  x.fillStyle = '#4af';
-  x.fillRect(px-2, py-15, 4, 15);
-
-  // items
-  items.forEach(it => {
-    x.fillStyle = it.color;
-    x.beginPath();
-    x.arc(it.x, it.y, it.r, 0, Math.PI*2);
-    x.fill();
-    if (!it.good) {
-      x.strokeStyle = '#fff';
-      x.lineWidth = 2;
-      x.beginPath();
-      x.moveTo(it.x-6, it.y-6); x.lineTo(it.x+6, it.y+6);
-      x.moveTo(it.x+6, it.y-6); x.lineTo(it.x-6, it.y+6);
-      x.stroke();
+function update() {
+  if (!alive) return;
+  frame++;
+  score += 0.15;
+  speed = 2.2 + frame * 0.004;
+  if (keys['arrowleft'] || keys['a']) player.x -= 5.5;
+  if (keys['arrowright'] || keys['d']) player.x += 5.5;
+  player.x = Math.max(player.r, Math.min(W - player.r, player.x));
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    const o = obstacles[i];
+    o.y += o.vy;
+    o.vy = Math.min(o.vy + 0.01, speed + 2);
+    if (o.y > H + 20) obstacles.splice(i, 1);
+    if (player.x + player.r > o.x && player.x - player.r < o.x + o.w &&
+        player.y + player.r > o.y && player.y - player.r < o.y + o.h) {
+      alive = false;
     }
-  });
-
-  sEl.textContent = score;
-  mEl.textContent = missed;
-  if (!running && score > 0) {
-    x.fillStyle = '#fff';
-    x.font = '30px Arial';
-    x.fillText('Game Over! Score: ' + score, 150, 350);
-    x.font = '16px Arial';
-    x.fillText('Press R to restart', 230, 390);
   }
+  if (Math.random() < 0.035 + frame * 0.00002) spawnObstacle();
+  if (Math.floor(score) > best) {
+    best = Math.floor(score);
+    localStorage.setItem('shaft-dive-best', String(best));
+  }
+}
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  // subtle vertical lines
+  ctx.strokeStyle = 'rgba(100,160,255,0.06)';
+  ctx.lineWidth = 1;
+  for (let x = 40; x < W; x += 40) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, H);
+    ctx.stroke();
+  }
+  // obstacles
+  for (const o of obstacles) {
+    ctx.fillStyle = '#ff5c7a';
+    ctx.shadowColor = '#ff5c7a';
+    ctx.shadowBlur = 10;
+    ctx.fillRect(o.x, o.y, o.w, o.h);
+    ctx.shadowBlur = 0;
+  }
+  // player
+  ctx.fillStyle = alive ? '#6ee7ff' : '#555';
+  ctx.shadowColor = alive ? '#6ee7ff' : 'transparent';
+  ctx.shadowBlur = alive ? 16 : 0;
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  hud.textContent = 'Shaft Dive — score ' + Math.floor(score) + ' — best ' + best + (alive ? '' : ' — crashed, press R');
+}
+function loop() {
+  update();
+  draw();
   requestAnimationFrame(loop);
 }
-
-window.onkeydown = e => {
-  keys[e.key] = true;
-  if (e.key === ' ' && !running) { running = true; missed = 0; score = 0; items = []; }
-  if (e.key === 'r' || e.key === 'R') { running = true; missed = 0; score = 0; items = []; }
-};
-window.onkeyup = e => keys[e.key] = false;
-c.onmousemove = e => {
-  const r = c.getBoundingClientRect();
-  px = e.clientX - r.left;
-};
+reset();
 loop();
 </script>
 </body>
