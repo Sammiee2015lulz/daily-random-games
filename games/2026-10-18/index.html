@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Star Catcher - Daily Game 2026-10-18</title>
+<style>
+body { margin:0; background:#020208; color:#fff; font-family:Arial,sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden; }
+canvas { border:2px solid #4af; box-shadow:0 0 30px #4af; background:linear-gradient(#001, #000); }
+#info { position:absolute; top:10px; left:10px; text-shadow:0 0 5px #4af; }
+</style>
+</head>
+<body>
+<div id="info">Score: <span id="s">0</span> | Missed: <span id="m">0</span>/3 | Click or Space to start</div>
+<canvas id="c" width="600" height="700"></canvas>
+<script>
+const c = document.getElementById('c'), x = c.getContext('2d');
+let px = 300, py = 620, score = 0, missed = 0, running = false, items = [], keys = {};
+const sEl = document.getElementById('s'), mEl = document.getElementById('m');
+
+function spawn() {
+  const good = Math.random() > 0.25;
+  items.push({
+    x: Math.random()*540+30, y: -20,
+    r: 12 + Math.random()*8,
+    vy: 2 + Math.random()*2 + score*0.05,
+    good,
+    color: good ? `hsl(${40+Math.random()*20},100%,60%)` : '#f44'
+  });
+}
+
+function loop() {
+  x.fillStyle = 'rgba(0,0,10,0.2)';
+  x.fillRect(0,0,600,700);
+  // stars
+  x.fillStyle = '#fff';
+  for(let i=0;i<30;i++) x.fillRect(Math.random()*600, Math.random()*700, 1,1);
+
+  if (running) {
+    if (keys['ArrowLeft'] || keys['a']) px -= 6;
+    if (keys['ArrowRight'] || keys['d']) px += 6;
+    px = Math.max(30, Math.min(570, px));
+
+    items.forEach((it,i) => {
+      it.y += it.vy;
+      if (it.y > 720) {
+        if (it.good) missed++;
+        items.splice(i,1);
+        if (missed >= 3) running = false;
+      }
+      if (Math.hypot(it.x - px, it.y - py) < it.r + 25) {
+        if (it.good) score += 10; else { score = Math.max(0,score-20); missed++; }
+        items.splice(i,1);
+        if (missed >= 3) running = false;
+      }
+    });
+    if (Math.random() < 0.03) spawn();
+  }
+
+  // player net
+  x.strokeStyle = '#4af';
+  x.lineWidth = 4;
+  x.beginPath();
+  x.arc(px, py, 30, 0, Math.PI*2);
+  x.stroke();
+  x.fillStyle = '#4af';
+  x.fillRect(px-2, py-15, 4, 15);
+
+  // items
+  items.forEach(it => {
+    x.fillStyle = it.color;
+    x.beginPath();
+    x.arc(it.x, it.y, it.r, 0, Math.PI*2);
+    x.fill();
+    if (!it.good) {
+      x.strokeStyle = '#fff';
+      x.lineWidth = 2;
+      x.beginPath();
+      x.moveTo(it.x-6, it.y-6); x.lineTo(it.x+6, it.y+6);
+      x.moveTo(it.x+6, it.y-6); x.lineTo(it.x-6, it.y+6);
+      x.stroke();
+    }
+  });
+
+  sEl.textContent = score;
+  mEl.textContent = missed;
+  if (!running && score > 0) {
+    x.fillStyle = '#fff';
+    x.font = '30px Arial';
+    x.fillText('Game Over! Score: ' + score, 150, 350);
+    x.font = '16px Arial';
+    x.fillText('Press R to restart', 230, 390);
+  }
+  requestAnimationFrame(loop);
+}
+
+window.onkeydown = e => {
+  keys[e.key] = true;
+  if (e.key === ' ' && !running) { running = true; missed = 0; score = 0; items = []; }
+  if (e.key === 'r' || e.key === 'R') { running = true; missed = 0; score = 0; items = []; }
+};
+window.onkeyup = e => keys[e.key] = false;
+c.onmousemove = e => {
+  const r = c.getBoundingClientRect();
+  px = e.clientX - r.left;
+};
+loop();
+</script>
+</body>
+</html>
