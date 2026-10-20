@@ -2,12 +2,12 @@
 
 A tiny original browser game lands here every day.
 
-- Latest: [Orbit Harvest (2026-10-19)](games/2026-10-19/index.html)
+- Latest: [Echo Trail (2026-10-20)](games/2026-10-20/index.html)
 
 Open the HTML file, or download it and open it in a browser.
 
-## Orbit Harvest
+## Echo Trail
 
-SPACE or Click to reverse orbit. Collect green orbs, avoid red spikes. Survive as long as you can. R restart.
+Move with mouse or arrow keys. Avoid your delayed echoes. Collect green orbs. R restart.
 
-Previous: [Shaft Dive (2026-10-18)](games/2026-10-18/index.html)
+Previous: [Orbit Harvest (2026-10-19)](games/2026-10-19/index.html)

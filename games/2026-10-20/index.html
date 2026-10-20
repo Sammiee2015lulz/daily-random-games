@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Echo Trail — 2026-10-20</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #070b12; color: #c8e6ff; font-family: system-ui, sans-serif; }
+  body { display: grid; place-items: center; }
+  canvas { background: radial-gradient(circle at 30% 40%, #152038, #070b12); border-radius: 12px; box-shadow: 0 0 40px #000a; max-width: 96vw; max-height: 80vh; cursor: none; }
+  #hud { position: fixed; top: 12px; left: 16px; font-size: 14px; }
+  #help { position: fixed; bottom: 12px; left: 16px; opacity: .75; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="hud">Echo Trail</div>
+<div id="help">Move with mouse or arrow keys. Avoid your delayed echoes. Collect green orbs. R restart.</div>
+<canvas id="c" width="500" height="500"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const W = 500, H = 500;
+let best = Number(localStorage.getItem('echo-trail-best') || 0);
+let player, history, echoes, orbs, score, alive, frame, keys = {}, mouse = {x: W/2, y: H/2};
+
+function reset() {
+  player = { x: W/2, y: H/2, r: 10 };
+  history = [];
+  echoes = [];
+  orbs = [];
+  score = 0;
+  alive = true;
+  frame = 0;
+  for (let i = 0; i < 6; i++) spawnOrb();
+}
+function spawnOrb() {
+  orbs.push({
+    x: 30 + Math.random() * (W - 60),
+    y: 30 + Math.random() * (H - 60),
+    r: 7,
+    hue: 140 + Math.random() * 40
+  });
+}
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  mouse.x = (e.clientX - rect.left) * (W / rect.width);
+  mouse.y = (e.clientY - rect.top) * (H / rect.height);
+});
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if (k === 'r') reset();
+});
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+function update() {
+  if (!alive) return;
+  frame++;
+  score += 0.06;
+
+  // movement
+  let dx = 0, dy = 0;
+  if (keys['arrowleft'] || keys['a']) dx -= 1;
+  if (keys['arrowright'] || keys['d']) dx += 1;
+  if (keys['arrowup'] || keys['w']) dy -= 1;
+  if (keys['arrowdown'] || keys['s']) dy += 1;
+  if (dx || dy) {
+    const len = Math.hypot(dx, dy) || 1;
+    player.x += (dx / len) * 4.2;
+    player.y += (dy / len) * 4.2;
+  } else {
+    // mouse follow if close to canvas center-ish, soft
+    const mx = mouse.x, my = mouse.y;
+    const dist = Math.hypot(mx - player.x, my - player.y);
+    if (dist > 4) {
+      player.x += (mx - player.x) * 0.12;
+      player.y += (my - player.y) * 0.12;
+    }
+  }
+  player.x = Math.max(player.r, Math.min(W - player.r, player.x));
+  player.y = Math.max(player.r, Math.min(H - player.r, player.y));
+
+  // record history
+  history.push({ x: player.x, y: player.y, f: frame });
+  if (history.length > 400) history.shift();
+
+  // spawn echoes over time
+  if (frame === 90 || (frame > 90 && frame % 180 === 0 && echoes.length < 8)) {
+    echoes.push({ delay: 40 + echoes.length * 18, offset: history.length });
+  }
+
+  // check echo collisions
+  for (const echo of echoes) {
+    const idx = history.length - 1 - echo.delay;
+    if (idx >= 0 && idx < history.length) {
+      const p = history[idx];
+      if (Math.hypot(p.x - player.x, p.y - player.y) < player.r + 8) {
+        alive = false;
+      }
+    }
+  }
+
+  // collect orbs
+  for (let i = orbs.length - 1; i >= 0; i--) {
+    const o = orbs[i];
+    if (Math.hypot(o.x - player.x, o.y - player.y) < player.r + o.r) {
+      score += 18;
+      orbs.splice(i, 1);
+      spawnOrb();
+    }
+  }
+  if (orbs.length < 4) spawnOrb();
+
+  if (Math.floor(score) > best) {
+    best = Math.floor(score);
+    localStorage.setItem('echo-trail-best', String(best));
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // faint trail of recent history
+  ctx.strokeStyle = 'rgba(100,180,255,0.12)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = Math.max(0, history.length - 60); i < history.length; i++) {
+    const p = history[i];
+    if (i === Math.max(0, history.length - 60)) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
+  }
+  ctx.stroke();
+
+  // echoes
+  for (const echo of echoes) {
+    const idx = history.length - 1 - echo.delay;
+    if (idx >= 0 && idx < history.length) {
+      const p = history[idx];
+      ctx.fillStyle = 'rgba(255,92,122,0.7)';
+      ctx.shadowColor = '#ff5c7a';
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+  }
+
+  // orbs
+  for (const o of orbs) {
+    ctx.fillStyle = `hsl(${o.hue}, 70%, 60%)`;
+    ctx.shadowColor = ctx.fillStyle;
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // player
+  ctx.fillStyle = alive ? '#ffe066' : '#666';
+  ctx.shadowColor = '#ffe066';
+  ctx.shadowBlur = alive ? 16 : 0;
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  hud.textContent = 'Echo Trail — score ' + Math.floor(score) + ' — best ' + best + (alive ? '' : ' — caught by echo, press R');
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+reset();
+loop();
+</script>
+</body>
+</html>
