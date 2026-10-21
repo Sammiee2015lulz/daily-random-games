@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ring Pulse — 2026-10-21</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #070b12; color: #c8e6ff; font-family: system-ui, sans-serif; }
+  body { display: grid; place-items: center; }
+  canvas { background: radial-gradient(circle at center, #152038, #070b12); border-radius: 12px; box-shadow: 0 0 40px #000a; max-width: 96vw; max-height: 80vh; }
+  #hud { position: fixed; top: 12px; left: 16px; font-size: 14px; }
+  #help { position: fixed; bottom: 12px; left: 16px; opacity: .75; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="hud">Ring Pulse</div>
+<div id="help">Move with mouse or arrow keys. Avoid expanding rings. Collect green orbs. R restart.</div>
+<canvas id="c" width="500" height="500"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const W = 500, H = 500;
+let best = Number(localStorage.getItem('ring-pulse-best') || 0);
+let player, rings, orbs, score, alive, frame, mouse = {x:250,y:250}, keys = {};
+
+function reset() {
+  player = { x: 250, y: 250, r: 10 };
+  rings = [];
+  orbs = [];
+  score = 0;
+  alive = true;
+  frame = 0;
+  for (let i = 0; i < 3; i++) spawnOrb();
+}
+function spawnRing() {
+  rings.push({
+    x: Math.random() * W,
+    y: Math.random() * H,
+    radius: 10,
+    speed: 1.5 + Math.random() * 1.5,
+    maxR: 80 + Math.random() * 120,
+    thickness: 4
+  });
+}
+function spawnOrb() {
+  orbs.push({
+    x: 40 + Math.random() * (W - 80),
+    y: 40 + Math.random() * (H - 80),
+    r: 8
+  });
+}
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if (k === 'r') reset();
+});
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  mouse.x = (e.clientX - rect.left) * (W / rect.width);
+  mouse.y = (e.clientY - rect.top) * (H / rect.height);
+});
+
+function update() {
+  if (!alive) return;
+  frame++;
+  score += 0.1;
+  // movement
+  let dx = 0, dy = 0;
+  if (keys['arrowleft'] || keys['a']) dx -= 4;
+  if (keys['arrowright'] || keys['d']) dx += 4;
+  if (keys['arrowup'] || keys['w']) dy -= 4;
+  if (keys['arrowdown'] || keys['s']) dy += 4;
+  if (dx === 0 && dy === 0) {
+    // mouse follow if no keys
+    dx = (mouse.x - player.x) * 0.08;
+    dy = (mouse.y - player.y) * 0.08;
+  }
+  player.x = Math.max(player.r, Math.min(W - player.r, player.x + dx));
+  player.y = Math.max(player.r, Math.min(H - player.r, player.y + dy));
+
+  // rings
+  for (let i = rings.length - 1; i >= 0; i--) {
+    const ring = rings[i];
+    ring.radius += ring.speed;
+    if (ring.radius > ring.maxR) {
+      rings.splice(i, 1);
+      continue;
+    }
+    // collision with ring edge
+    const dist = Math.hypot(player.x - ring.x, player.y - ring.y);
+    if (Math.abs(dist - ring.radius) < player.r + ring.thickness / 2) {
+      alive = false;
+    }
+  }
+  if (frame % 40 === 0) spawnRing();
+
+  // orbs
+  for (let i = orbs.length - 1; i >= 0; i--) {
+    const o = orbs[i];
+    if (Math.hypot(player.x - o.x, player.y - o.y) < player.r + o.r) {
+      score += 20;
+      orbs.splice(i, 1);
+      spawnOrb();
+      if (Math.floor(score) > best) {
+        best = Math.floor(score);
+        localStorage.setItem('ring-pulse-best', String(best));
+      }
+    }
+  }
+  if (orbs.length < 3) spawnOrb();
+}
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  // rings
+  for (const ring of rings) {
+    ctx.strokeStyle = '#ff5c7a';
+    ctx.lineWidth = ring.thickness;
+    ctx.shadowColor = '#ff5c7a';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(ring.x, ring.y, ring.radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+  // orbs
+  for (const o of orbs) {
+    ctx.fillStyle = '#6ee7b7';
+    ctx.shadowColor = '#6ee7b7';
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+  // player
+  ctx.fillStyle = alive ? '#ffe066' : '#666';
+  ctx.shadowColor = '#ffe066';
+  ctx.shadowBlur = alive ? 16 : 0;
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  hud.textContent = 'Ring Pulse — score ' + Math.floor(score) + ' — best ' + best + (alive ? '' : ' — hit, press R');
+}
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+reset();
+loop();
+</script>
+</body>
+</html>
