@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Charge Dash — 2026-10-22</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #070b12; color: #c8e6ff; font-family: system-ui, sans-serif; }
+  body { display: grid; place-items: center; }
+  canvas { background: radial-gradient(circle at center, #152038, #070b12); border-radius: 12px; box-shadow: 0 0 40px #000a; max-width: 96vw; max-height: 80vh; }
+  #hud { position: fixed; top: 12px; left: 16px; font-size: 14px; }
+  #help { position: fixed; bottom: 12px; left: 16px; opacity: .75; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="hud">Charge Dash</div>
+<div id="help">Hold Space to charge, release to dash toward mouse. WASD/arrows to drift. Collect green orbs, avoid red chasers. R restart.</div>
+<canvas id="c" width="500" height="500"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const W = 500, H = 500;
+let best = Number(localStorage.getItem('charge-dash-best') || 0);
+let player, enemies, orbs, score, alive, frame, charge, charging, mouse = {x:250,y:250}, keys = {}, dashVx = 0, dashVy = 0;
+
+function reset() {
+  player = { x: 250, y: 250, r: 12, vx: 0, vy: 0 };
+  enemies = [];
+  orbs = [];
+  score = 0;
+  alive = true;
+  frame = 0;
+  charge = 0;
+  charging = false;
+  dashVx = dashVy = 0;
+  for (let i = 0; i < 4; i++) spawnOrb();
+  for (let i = 0; i < 2; i++) spawnEnemy();
+}
+function spawnOrb() {
+  orbs.push({
+    x: 40 + Math.random() * (W - 80),
+    y: 40 + Math.random() * (H - 80),
+    r: 8
+  });
+}
+function spawnEnemy() {
+  enemies.push({
+    x: Math.random() * W,
+    y: Math.random() * H,
+    r: 10 + Math.random() * 6,
+    speed: 0.6 + Math.random() * 0.5
+  });
+}
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  mouse.x = (e.clientX - rect.left) * (W / rect.width);
+  mouse.y = (e.clientY - rect.top) * (H / rect.height);
+});
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if (k === 'r') reset();
+  if ((k === ' ' || k === 'space') && alive && !charging) {
+    e.preventDefault();
+    charging = true;
+    charge = 0;
+  }
+});
+addEventListener('keyup', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = false;
+  if ((k === ' ' || k === 'space') && charging && alive) {
+    // release dash
+    const dx = mouse.x - player.x;
+    const dy = mouse.y - player.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    const power = 4 + charge * 18;
+    dashVx = (dx / dist) * power;
+    dashVy = (dy / dist) * power;
+    charging = false;
+    charge = 0;
+  }
+});
+
+function update() {
+  if (!alive) return;
+  frame++;
+  score += 0.08;
+
+  // charge
+  if (charging) {
+    charge = Math.min(1, charge + 0.025);
+    // slight slow while charging
+    player.vx *= 0.9;
+    player.vy *= 0.9;
+  }
+
+  // free drift movement
+  let dx = 0, dy = 0;
+  if (keys['arrowleft'] || keys['a']) dx -= 1;
+  if (keys['arrowright'] || keys['d']) dx += 1;
+  if (keys['arrowup'] || keys['w']) dy -= 1;
+  if (keys['arrowdown'] || keys['s']) dy += 1;
+  if (dx || dy) {
+    const len = Math.hypot(dx, dy);
+    player.vx += (dx / len) * 0.35;
+    player.vy += (dy / len) * 0.35;
+  }
+  // apply dash impulse
+  player.vx += dashVx;
+  player.vy += dashVy;
+  dashVx *= 0.82;
+  dashVy *= 0.82;
+  if (Math.abs(dashVx) < 0.1) dashVx = 0;
+  if (Math.abs(dashVy) < 0.1) dashVy = 0;
+
+  // friction and move
+  player.vx *= 0.94;
+  player.vy *= 0.94;
+  player.x += player.vx;
+  player.y += player.vy;
+  player.x = Math.max(player.r, Math.min(W - player.r, player.x));
+  player.y = Math.max(player.r, Math.min(H - player.r, player.y));
+
+  // enemies chase
+  for (const en of enemies) {
+    const ex = player.x - en.x;
+    const ey = player.y - en.y;
+    const ed = Math.hypot(ex, ey) || 1;
+    en.x += (ex / ed) * en.speed;
+    en.y += (ey / ed) * en.speed;
+    // bounce off edges slightly
+    if (en.x < en.r || en.x > W - en.r) en.x = Math.max(en.r, Math.min(W - en.r, en.x));
+    if (en.y < en.r || en.y > H - en.r) en.y = Math.max(en.r, Math.min(H - en.r, en.y));
+    if (Math.hypot(player.x - en.x, player.y - en.y) < player.r + en.r - 2) {
+      alive = false;
+    }
+  }
+  if (frame % 180 === 0 && enemies.length < 5) spawnEnemy();
+
+  // orbs
+  for (let i = orbs.length - 1; i >= 0; i--) {
+    const o = orbs[i];
+    if (Math.hypot(player.x - o.x, player.y - o.y) < player.r + o.r) {
+      score += 25;
+      orbs.splice(i, 1);
+      spawnOrb();
+    }
+  }
+  if (orbs.length < 3) spawnOrb();
+
+  if (Math.floor(score) > best) {
+    best = Math.floor(score);
+    localStorage.setItem('charge-dash-best', String(best));
+  }
+}
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // aim line if charging
+  if (charging && alive) {
+    ctx.strokeStyle = 'rgba(255,224,102,0.4)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath();
+    ctx.moveTo(player.x, player.y);
+    ctx.lineTo(mouse.x, mouse.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // enemies
+  for (const en of enemies) {
+    ctx.fillStyle = '#ff5c7a';
+    ctx.shadowColor = '#ff5c7a';
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(en.x, en.y, en.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // orbs
+  for (const o of orbs) {
+    ctx.fillStyle = '#6ee7b7';
+    ctx.shadowColor = '#6ee7b7';
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // player (grows slightly while charging)
+  const pr = player.r + (charging ? charge * 6 : 0);
+  ctx.fillStyle = alive ? '#ffe066' : '#666';
+  ctx.shadowColor = '#ffe066';
+  ctx.shadowBlur = alive ? 16 + (charging ? charge * 20 : 0) : 0;
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, pr, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // charge bar
+  if (charging) {
+    ctx.fillStyle = '#ffe066';
+    ctx.fillRect(20, H - 30, charge * 120, 8);
+    ctx.strokeStyle = '#ffe066';
+    ctx.strokeRect(20, H - 30, 120, 8);
+  }
+
+  hud.textContent = 'Charge Dash — score ' + Math.floor(score) + ' — best ' + best + (alive ? '' : ' — hit, press R');
+}
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+reset();
+loop();
+</script>
+</body>
+</html>

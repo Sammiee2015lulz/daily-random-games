@@ -2,12 +2,12 @@
 
 A tiny original browser game lands here every day.
 
-- Latest: [Ring Pulse (2026-10-21)](games/2026-10-21/index.html)
+- Latest: [Charge Dash (2026-10-22)](games/2026-10-22/index.html)
 
 Open the HTML file, or download it and open it in a browser.
 
-## Ring Pulse
+## Charge Dash
 
-Move with mouse or arrow keys. Avoid expanding rings. Collect green orbs. R restart.
+Hold Space to charge, release to dash toward mouse. WASD/arrows to drift. Collect green orbs, avoid red chasers. R restart.
 
-Previous: [Echo Trail (2026-10-20)](games/2026-10-20/index.html)
+Previous: [Ring Pulse (2026-10-21)](games/2026-10-21/index.html)
