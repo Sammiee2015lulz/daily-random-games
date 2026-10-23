@@ -2,12 +2,12 @@
 
 A tiny original browser game lands here every day.
 
-- Latest: [Charge Dash (2026-10-22)](games/2026-10-22/index.html)
+- Latest: [Gravity Flip (2026-10-23)](games/2026-10-23/index.html)
 
 Open the HTML file, or download it and open it in a browser.
 
-## Charge Dash
+## Gravity Flip
 
-Hold Space to charge, release to dash toward mouse. WASD/arrows to drift. Collect green orbs, avoid red chasers. R restart.
+A/D or ← → to move. Space or click to flip gravity. Collect green orbs, avoid red balls. R restart.
 
-Previous: [Ring Pulse (2026-10-21)](games/2026-10-21/index.html)
+Previous: [Charge Dash (2026-10-22)](games/2026-10-22/index.html)
