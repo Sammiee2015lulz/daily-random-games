@@ -2,12 +2,12 @@
 
 A tiny original browser game lands here every day.
 
-- Latest: [Gravity Flip (2026-10-23)](games/2026-10-23/index.html)
+- Latest: [Polarity Shift (2026-10-24)](games/2026-10-24/index.html)
 
 Open the HTML file, or download it and open it in a browser.
 
-## Gravity Flip
+## Polarity Shift
 
-A/D or ← → to move. Space or click to flip gravity. Collect green orbs, avoid red balls. R restart.
+WASD or ←→↑↓ to move. Space or click to flip polarity (Attract / Repel). Attract pulls green orbs. Repel pushes red hazards. R restart.
 
-Previous: [Charge Dash (2026-10-22)](games/2026-10-22/index.html)
+Previous: [Gravity Flip (2026-10-23)](games/2026-10-23/index.html)

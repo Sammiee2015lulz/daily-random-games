@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Polarity Shift — 2026-10-24</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #070b12; color: #c8e6ff; font-family: system-ui, sans-serif; }
+  body { display: grid; place-items: center; }
+  canvas { background: radial-gradient(circle at center, #152038, #070b12); border-radius: 12px; box-shadow: 0 0 40px #000a; max-width: 96vw; max-height: 80vh; }
+  #hud { position: fixed; top: 12px; left: 16px; font-size: 14px; }
+  #help { position: fixed; bottom: 12px; left: 16px; opacity: .75; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="hud">Polarity Shift</div>
+<div id="help">WASD or ←→↑↓ to move. Space or click to flip polarity (Attract / Repel). Attract pulls green orbs. Repel pushes red hazards. R restart.</div>
+<canvas id="c" width="500" height="500"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const W = 500, H = 500;
+let best = Number(localStorage.getItem('polarity-shift-best') || 0);
+let player, orbs, hazards, score, alive, frame, polarity, keys = {}; // polarity: 1 attract, -1 repel
+
+function reset() {
+  player = { x: 250, y: 250, r: 12, vx: 0, vy: 0 };
+  orbs = [];
+  hazards = [];
+  score = 0;
+  alive = true;
+  frame = 0;
+  polarity = 1; // start attract
+  for (let i = 0; i < 5; i++) spawnOrb();
+  for (let i = 0; i < 3; i++) spawnHazard();
+}
+function spawnOrb() {
+  orbs.push({
+    x: 50 + Math.random() * (W - 100),
+    y: 50 + Math.random() * (H - 100),
+    r: 8,
+    vx: 0, vy: 0
+  });
+}
+function spawnHazard() {
+  hazards.push({
+    x: 40 + Math.random() * (W - 80),
+    y: 40 + Math.random() * (H - 80),
+    r: 9 + Math.random() * 4,
+    vx: (Math.random() - 0.5) * 1.5,
+    vy: (Math.random() - 0.5) * 1.5
+  });
+}
+function flipPolarity() {
+  if (!alive) return;
+  polarity *= -1;
+}
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if (k === 'r') reset();
+  if ((k === ' ' || k === 'space') && alive) {
+    e.preventDefault();
+    flipPolarity();
+  }
+});
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+canvas.addEventListener('click', flipPolarity);
+
+function update() {
+  if (!alive) return;
+  frame++;
+  score += 0.12;
+
+  // movement
+  let mx = 0, my = 0;
+  if (keys['arrowleft'] || keys['a']) mx -= 1;
+  if (keys['arrowright'] || keys['d']) mx += 1;
+  if (keys['arrowup'] || keys['w']) my -= 1;
+  if (keys['arrowdown'] || keys['s']) my += 1;
+  if (mx || my) {
+    const len = Math.hypot(mx, my);
+    player.vx += (mx / len) * 0.55;
+    player.vy += (my / len) * 0.55;
+  }
+  player.vx *= 0.92;
+  player.vy *= 0.92;
+  player.x += player.vx;
+  player.y += player.vy;
+  player.x = Math.max(player.r, Math.min(W - player.r, player.x));
+  player.y = Math.max(player.r, Math.min(H - player.r, player.y));
+
+  // orbs: attract when polarity > 0
+  for (let i = orbs.length - 1; i >= 0; i--) {
+    const o = orbs[i];
+    if (polarity > 0) {
+      const dx = player.x - o.x;
+      const dy = player.y - o.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const force = Math.min(120 / (dist * dist), 1.8);
+      o.vx += (dx / dist) * force;
+      o.vy += (dy / dist) * force;
+    }
+    o.vx *= 0.96;
+    o.vy *= 0.96;
+    o.x += o.vx;
+    o.y += o.vy;
+    o.x = Math.max(o.r, Math.min(W - o.r, o.x));
+    o.y = Math.max(o.r, Math.min(H - o.r, o.y));
+
+    if (Math.hypot(player.x - o.x, player.y - o.y) < player.r + o.r) {
+      score += 22;
+      orbs.splice(i, 1);
+      spawnOrb();
+    }
+  }
+  if (orbs.length < 4) spawnOrb();
+
+  // hazards: repel when polarity < 0, mild chase otherwise
+  for (const hz of hazards) {
+    const dx = player.x - hz.x;
+    const dy = player.y - hz.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    if (polarity < 0) {
+      // push away
+      const force = Math.min(180 / (dist * dist), 2.2);
+      hz.vx -= (dx / dist) * force;
+      hz.vy -= (dy / dist) * force;
+    } else {
+      // mild drift toward
+      hz.vx += (dx / dist) * 0.12;
+      hz.vy += (dy / dist) * 0.12;
+    }
+    hz.vx *= 0.97;
+    hz.vy *= 0.97;
+    hz.x += hz.vx;
+    hz.y += hz.vy;
+    if (hz.x < hz.r || hz.x > W - hz.r) { hz.vx *= -0.6; hz.x = Math.max(hz.r, Math.min(W - hz.r, hz.x)); }
+    if (hz.y < hz.r || hz.y > H - hz.r) { hz.vy *= -0.6; hz.y = Math.max(hz.r, Math.min(H - hz.r, hz.y)); }
+
+    if (Math.hypot(player.x - hz.x, player.y - hz.y) < player.r + hz.r - 1) {
+      alive = false;
+    }
+  }
+  if (frame % 160 === 0 && hazards.length < 5) spawnHazard();
+
+  if (Math.floor(score) > best) {
+    best = Math.floor(score);
+    localStorage.setItem('polarity-shift-best', String(best));
+  }
+}
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // polarity aura
+  const auraColor = polarity > 0 ? 'rgba(110,231,183,0.08)' : 'rgba(255,92,122,0.08)';
+  ctx.fillStyle = auraColor;
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, 80, 0, Math.PI * 2);
+  ctx.fill();
+
+  // hazards
+  for (const hz of hazards) {
+    ctx.fillStyle = '#ff5c7a';
+    ctx.shadowColor = '#ff5c7a';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(hz.x, hz.y, hz.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // orbs
+  for (const o of orbs) {
+    ctx.fillStyle = '#6ee7b7';
+    ctx.shadowColor = '#6ee7b7';
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // player
+  ctx.fillStyle = alive ? (polarity > 0 ? '#6ee7b7' : '#ff9aa2') : '#666';
+  ctx.shadowColor = alive ? (polarity > 0 ? '#6ee7b7' : '#ff9aa2') : '#000';
+  ctx.shadowBlur = alive ? 16 : 0;
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // polarity indicator
+  ctx.fillStyle = '#c8e6ff';
+  ctx.font = '12px system-ui';
+  ctx.fillText(polarity > 0 ? 'ATTRACT' : 'REPEL', player.x - 22, player.y - 20);
+
+  hud.textContent = 'Polarity Shift — score ' + Math.floor(score) + ' — best ' + best + (alive ? '' : ' — hit, press R') + ' — ' + (polarity > 0 ? 'ATTRACT' : 'REPEL');
+}
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+reset();
+loop();
+</script>
+</body>
+</html>
