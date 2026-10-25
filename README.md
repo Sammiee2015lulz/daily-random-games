@@ -2,12 +2,12 @@
 
 A tiny original browser game lands here every day.
 
-- Latest: [Polarity Shift (2026-10-24)](games/2026-10-24/index.html)
+- Latest: [Phase Walker (2026-10-25)](games/2026-10-25/index.html)
 
 Open the HTML file, or download it and open it in a browser.
 
-## Polarity Shift
+## Phase Walker
 
-WASD or ←→↑↓ to move. Space or click to flip polarity (Attract / Repel). Attract pulls green orbs. Repel pushes red hazards. R restart.
+WASD or ←→↑↓ to move. Hold Space to phase (pass through hazards, cannot collect). Collect green orbs while solid. R restart.
 
-Previous: [Gravity Flip (2026-10-23)](games/2026-10-23/index.html)
+Previous: [Polarity Shift (2026-10-24)](games/2026-10-24/index.html)
