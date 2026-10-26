@@ -2,12 +2,12 @@
 
 A tiny original browser game lands here every day.
 
-- Latest: [Phase Walker (2026-10-25)](games/2026-10-25/index.html)
+- Latest: [Shield Orbit (2026-10-26)](games/2026-10-26/index.html)
 
 Open the HTML file, or download it and open it in a browser.
 
-## Phase Walker
+## Shield Orbit
 
-WASD or ←→↑↓ to move. Hold Space to phase (pass through hazards, cannot collect). Collect green orbs while solid. R restart.
+WASD or ←→↑↓ to move. ←→ or A/D to reverse shield orbit. Position shield to block red hazards. Collect green orbs. R restart.
 
-Previous: [Polarity Shift (2026-10-24)](games/2026-10-24/index.html)
+Previous: [Phase Walker (2026-10-25)](games/2026-10-25/index.html)
