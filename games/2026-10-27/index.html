@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shadow Delay — 2026-10-27</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #070b12; color: #c8e6ff; font-family: system-ui, sans-serif; }
+  body { display: grid; place-items: center; }
+  canvas { background: radial-gradient(circle at center, #152038, #070b12); border-radius: 12px; box-shadow: 0 0 40px #000a; max-width: 96vw; max-height: 80vh; }
+  #hud { position: fixed; top: 12px; left: 16px; font-size: 14px; }
+  #help { position: fixed; bottom: 12px; left: 16px; opacity: .75; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="hud">Shadow Delay</div>
+<div id="help">WASD or ←→↑↓ to move. Your shadow follows your path with delay. Avoid red hazards and your shadow. Collect green orbs. R restart.</div>
+<canvas id="c" width="500" height="500"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const W = 500, H = 500;
+let best = Number(localStorage.getItem('shadow-delay-best') || 0);
+let player, history, orbs, hazards, score, alive, frame, keys = {};
+const DELAY = 90; // frames of delay (~1.5s at 60fps)
+
+function reset() {
+  player = { x: 250, y: 250, r: 11, vx: 0, vy: 0 };
+  history = [];
+  orbs = [];
+  hazards = [];
+  score = 0;
+  alive = true;
+  frame = 0;
+  for (let i = 0; i < 5; i++) spawnOrb();
+  for (let i = 0; i < 3; i++) spawnHazard();
+  // seed history so shadow starts at start pos
+  for (let i = 0; i < DELAY; i++) history.push({x: 250, y: 250});
+}
+function spawnOrb() {
+  orbs.push({
+    x: 40 + Math.random() * (W - 80),
+    y: 40 + Math.random() * (H - 80),
+    r: 7
+  });
+}
+function spawnHazard() {
+  hazards.push({
+    x: 30 + Math.random() * (W - 60),
+    y: 30 + Math.random() * (H - 60),
+    r: 9 + Math.random() * 4,
+    vx: (Math.random() - 0.5) * 1.6,
+    vy: (Math.random() - 0.5) * 1.6
+  });
+}
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if (k === 'r') reset();
+});
+addEventListener('keyup', e => {
+  keys[e.key.toLowerCase()] = false;
+});
+
+function update() {
+  if (!alive) return;
+  frame++;
+  score += 0.1;
+
+  // movement
+  let mx = 0, my = 0;
+  if (keys['arrowleft'] || keys['a']) mx -= 1;
+  if (keys['arrowright'] || keys['d']) mx += 1;
+  if (keys['arrowup'] || keys['w']) my -= 1;
+  if (keys['arrowdown'] || keys['s']) my += 1;
+  if (mx || my) {
+    const len = Math.hypot(mx, my);
+    player.vx += (mx / len) * 0.55;
+    player.vy += (my / len) * 0.55;
+  }
+  player.vx *= 0.92;
+  player.vy *= 0.92;
+  player.x += player.vx;
+  player.y += player.vy;
+  player.x = Math.max(player.r + 5, Math.min(W - player.r - 5, player.x));
+  player.y = Math.max(player.r + 5, Math.min(H - player.r - 5, player.y));
+
+  // record history
+  history.push({x: player.x, y: player.y});
+  if (history.length > DELAY + 10) history.shift();
+
+  const shadow = history[0] || {x: player.x, y: player.y};
+
+  // hazards
+  for (const hz of hazards) {
+    const dx = player.x - hz.x;
+    const dy = player.y - hz.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    hz.vx += (dx / dist) * 0.07;
+    hz.vy += (dy / dist) * 0.07;
+    hz.vx *= 0.98;
+    hz.vy *= 0.98;
+    hz.x += hz.vx;
+    hz.y += hz.vy;
+    if (hz.x < hz.r || hz.x > W - hz.r) { hz.vx *= -0.7; hz.x = Math.max(hz.r, Math.min(W - hz.r, hz.x)); }
+    if (hz.y < hz.r || hz.y > H - hz.r) { hz.vy *= -0.7; hz.y = Math.max(hz.r, Math.min(H - hz.r, hz.y)); }
+
+    if (Math.hypot(player.x - hz.x, player.y - hz.y) < player.r + hz.r - 1 ||
+        Math.hypot(shadow.x - hz.x, shadow.y - hz.y) < player.r + hz.r - 1) {
+      alive = false;
+    }
+  }
+  if (frame % 160 === 0 && hazards.length < 5) spawnHazard();
+
+  // self collision with shadow (after some time)
+  if (frame > DELAY + 30 && Math.hypot(player.x - shadow.x, player.y - shadow.y) < player.r * 1.8) {
+    alive = false;
+  }
+
+  // orbs
+  for (let i = orbs.length - 1; i >= 0; i--) {
+    const o = orbs[i];
+    if (Math.hypot(player.x - o.x, player.y - o.y) < player.r + o.r ||
+        Math.hypot(shadow.x - o.x, shadow.y - o.y) < player.r + o.r) {
+      score += 20;
+      orbs.splice(i, 1);
+      spawnOrb();
+    }
+  }
+  if (orbs.length < 4) spawnOrb();
+
+  if (Math.floor(score) > best) {
+    best = Math.floor(score);
+    localStorage.setItem('shadow-delay-best', String(best));
+  }
+}
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  const shadow = history[0] || {x: player.x, y: player.y};
+
+  // trail hint
+  ctx.strokeStyle = 'rgba(160,120,255,0.25)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  if (history.length > 1) {
+    ctx.moveTo(history[0].x, history[0].y);
+    for (let i = 1; i < history.length; i += 3) {
+      ctx.lineTo(history[i].x, history[i].y);
+    }
+    ctx.stroke();
+  }
+
+  // hazards
+  for (const hz of hazards) {
+    ctx.fillStyle = '#ff5c7a';
+    ctx.shadowColor = '#ff5c7a';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(hz.x, hz.y, hz.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // orbs
+  for (const o of orbs) {
+    ctx.fillStyle = '#6ee7b7';
+    ctx.shadowColor = '#6ee7b7';
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // shadow
+  ctx.fillStyle = alive ? 'rgba(160,120,255,0.7)' : '#666';
+  ctx.shadowColor = '#a078ff';
+  ctx.shadowBlur = alive ? 14 : 0;
+  ctx.beginPath();
+  ctx.arc(shadow.x, shadow.y, player.r * 0.9, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(160,120,255,0.8)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath();
+  ctx.arc(shadow.x, shadow.y, player.r * 0.9 + 3, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // player
+  ctx.fillStyle = alive ? '#ffe066' : '#666';
+  ctx.shadowColor = '#ffe066';
+  ctx.shadowBlur = alive ? 16 : 0;
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  hud.textContent = 'Shadow Delay — score ' + Math.floor(score) + ' — best ' + best + (alive ? '' : ' — hit, press R');
+}
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+reset();
+loop();
+</script>
+</body>
+</html>
