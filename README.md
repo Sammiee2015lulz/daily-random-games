@@ -2,12 +2,14 @@
 
 A tiny original browser game lands here every day.
 
-- Latest: [Orbital Dash (2026-10-28)](games/2026-10-28/index.html)
+- Latest: [Hue Shift (2026-10-28)](games/2026-10-28/index.html)
 
 Open the HTML file, or download it and open it in a browser.
 
-## Orbital Dash
+## Hue Shift
 
-W/S or ↑↓ to change orbit. Auto-rotate around the planet. Collect cyan stars, dodge red asteroids. R restart.
+WASD or ←→↑↓ to move. Space to switch color. Collect matching orbs, avoid mismatched orbs and red hazards. R restart.
 
-Previous: [Shadow Delay (2026-10-27)](games/2026-10-27/index.html)
+Previous: [Orbital Dash (2026-10-28)](games/2026-10-28/index.html) wait no, previous was the old one, but since overwritten, better to list previous as Shadow Delay or note.
+
+Wait, fix README properly.

@@ -3,196 +3,172 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Orbital Dash — 2026-10-28</title>
+<title>Hue Shift — 2026-10-28</title>
 <style>
-  html, body { margin: 0; height: 100%; background: #05070e; color: #d0e8ff; font-family: system-ui, sans-serif; }
+  html, body { margin: 0; height: 100%; background: #070b12; color: #c8e6ff; font-family: system-ui, sans-serif; }
   body { display: grid; place-items: center; }
-  canvas { background: radial-gradient(circle at center, #0a1428 0%, #05070e 70%); border-radius: 12px; box-shadow: 0 0 50px #000c; max-width: 96vw; max-height: 80vh; }
+  canvas { background: radial-gradient(circle at center, #152038, #070b12); border-radius: 12px; box-shadow: 0 0 40px #000a; max-width: 96vw; max-height: 80vh; }
   #hud { position: fixed; top: 12px; left: 16px; font-size: 14px; }
   #help { position: fixed; bottom: 12px; left: 16px; opacity: .75; font-size: 13px; max-width: 90vw; }
 </style>
 </head>
 <body>
-<div id="hud">Orbital Dash</div>
-<div id="help">W/S or ↑↓ to change orbit. Auto-rotate around the planet. Collect cyan stars, dodge red asteroids. R restart.</div>
-<canvas id="c" width="520" height="520"></canvas>
+<div id="hud">Hue Shift</div>
+<div id="help">WASD or ←→↑↓ to move. Space to switch color. Collect matching orbs, avoid mismatched orbs and red hazards. R restart.</div>
+<canvas id="c" width="500" height="500"></canvas>
 <script>
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 const hud = document.getElementById('hud');
-const W = 520, H = 520;
-const CX = W / 2, CY = H / 2;
-let best = Number(localStorage.getItem('orbital-dash-best') || 0);
-
-let player, angle, radius, asteroids, stars, score, alive, frame, keys = {};
-const MIN_R = 70, MAX_R = 220;
+const W = 500, H = 500;
+let best = Number(localStorage.getItem('hue-shift-best') || 0);
+let player, orbs, hazards, score, alive, frame, colorIndex, keys = {};
+const COLORS = ['#5eead4', '#fb923c']; // cyan, orange
+const COLOR_NAMES = ['CYAN', 'ORANGE'];
 
 function reset() {
-  angle = 0;
-  radius = 140;
-  player = { r: 9 };
-  asteroids = [];
-  stars = [];
+  player = { x: 250, y: 250, r: 12, vx: 0, vy: 0 };
+  orbs = [];
+  hazards = [];
   score = 0;
   alive = true;
   frame = 0;
-  for (let i = 0; i < 4; i++) spawnStar();
-  for (let i = 0; i < 3; i++) spawnAsteroid();
+  colorIndex = 0;
+  for (let i = 0; i < 6; i++) spawnOrb();
+  for (let i = 0; i < 3; i++) spawnHazard();
 }
-
-function spawnAsteroid() {
-  const a = Math.random() * Math.PI * 2;
-  const startR = MAX_R + 40 + Math.random() * 60;
-  asteroids.push({
-    angle: a,
-    radius: startR,
-    speed: 0.6 + Math.random() * 0.8,
-    size: 8 + Math.random() * 6
+function spawnOrb() {
+  orbs.push({
+    x: 40 + Math.random() * (W - 80),
+    y: 40 + Math.random() * (H - 80),
+    r: 8,
+    color: Math.floor(Math.random() * 2)
   });
 }
-
-function spawnStar() {
-  const a = Math.random() * Math.PI * 2;
-  const r = MIN_R + 20 + Math.random() * (MAX_R - MIN_R - 40);
-  stars.push({
-    angle: a,
-    radius: r,
-    size: 6
+function spawnHazard() {
+  hazards.push({
+    x: 30 + Math.random() * (W - 60),
+    y: 30 + Math.random() * (H - 60),
+    r: 9 + Math.random() * 5,
+    vx: (Math.random() - 0.5) * 1.7,
+    vy: (Math.random() - 0.5) * 1.7
   });
 }
-
+function switchColor() {
+  if (!alive) return;
+  colorIndex = 1 - colorIndex;
+}
 addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   keys[k] = true;
   if (k === 'r') reset();
+  if ((k === ' ' || k === 'space') && alive) {
+    e.preventDefault();
+    switchColor();
+  }
 });
-addEventListener('keyup', e => {
-  keys[e.key.toLowerCase()] = false;
-});
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 
 function update() {
   if (!alive) return;
   frame++;
-  score += 0.08;
+  score += 0.1;
 
-  // orbit control
-  if (keys['arrowup'] || keys['w']) radius -= 1.4;
-  if (keys['arrowdown'] || keys['s']) radius += 1.4;
-  radius = Math.max(MIN_R, Math.min(MAX_R, radius));
+  // movement
+  let mx = 0, my = 0;
+  if (keys['arrowleft'] || keys['a']) mx -= 1;
+  if (keys['arrowright'] || keys['d']) mx += 1;
+  if (keys['arrowup'] || keys['w']) my -= 1;
+  if (keys['arrowdown'] || keys['s']) my += 1;
+  if (mx || my) {
+    const len = Math.hypot(mx, my);
+    player.vx += (mx / len) * 0.55;
+    player.vy += (my / len) * 0.55;
+  }
+  player.vx *= 0.92;
+  player.vy *= 0.92;
+  player.x += player.vx;
+  player.y += player.vy;
+  player.x = Math.max(player.r + 4, Math.min(W - player.r - 4, player.x));
+  player.y = Math.max(player.r + 4, Math.min(H - player.r - 4, player.y));
 
-  angle += 0.018; // auto spin
+  // hazards
+  for (const hz of hazards) {
+    const dx = player.x - hz.x;
+    const dy = player.y - hz.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    hz.vx += (dx / dist) * 0.05;
+    hz.vy += (dy / dist) * 0.05;
+    hz.vx *= 0.98;
+    hz.vy *= 0.98;
+    hz.x += hz.vx;
+    hz.y += hz.vy;
+    if (hz.x < hz.r || hz.x > W - hz.r) { hz.vx *= -0.65; hz.x = Math.max(hz.r, Math.min(W - hz.r, hz.x)); }
+    if (hz.y < hz.r || hz.y > H - hz.r) { hz.vy *= -0.65; hz.y = Math.max(hz.r, Math.min(H - hz.r, hz.y)); }
 
-  const px = CX + Math.cos(angle) * radius;
-  const py = CY + Math.sin(angle) * radius;
-
-  // asteroids move inward
-  for (let i = asteroids.length - 1; i >= 0; i--) {
-    const a = asteroids[i];
-    a.radius -= a.speed;
-    const ax = CX + Math.cos(a.angle) * a.radius;
-    const ay = CY + Math.sin(a.angle) * a.radius;
-
-    if (a.radius < MIN_R - 20) {
-      asteroids.splice(i, 1);
-      continue;
-    }
-
-    if (Math.hypot(px - ax, py - ay) < player.r + a.size - 1) {
+    if (Math.hypot(player.x - hz.x, player.y - hz.y) < player.r + hz.r - 1) {
       alive = false;
     }
   }
-  if (frame % 90 === 0 && asteroids.length < 7) spawnAsteroid();
+  if (frame % 150 === 0 && hazards.length < 5) spawnHazard();
 
-  // stars
-  for (let i = stars.length - 1; i >= 0; i--) {
-    const s = stars[i];
-    const sx = CX + Math.cos(s.angle) * s.radius;
-    const sy = CY + Math.sin(s.angle) * s.radius;
-    if (Math.hypot(px - sx, py - sy) < player.r + s.size + 2) {
-      score += 25;
-      stars.splice(i, 1);
-      spawnStar();
+  // orbs: match collect, mismatch hurts
+  for (let i = orbs.length - 1; i >= 0; i--) {
+    const o = orbs[i];
+    const dist = Math.hypot(player.x - o.x, player.y - o.y);
+    if (dist < player.r + o.r) {
+      if (o.color === colorIndex) {
+        score += 30;
+        orbs.splice(i, 1);
+        spawnOrb();
+      } else {
+        alive = false;
+      }
     }
   }
-  if (stars.length < 3) spawnStar();
+  if (orbs.length < 5) spawnOrb();
 
   if (Math.floor(score) > best) {
     best = Math.floor(score);
-    localStorage.setItem('orbital-dash-best', String(best));
+    localStorage.setItem('hue-shift-best', String(best));
   }
 }
-
 function draw() {
   ctx.clearRect(0, 0, W, H);
 
-  // planet
-  const grad = ctx.createRadialGradient(CX, CY, 20, CX, CY, 55);
-  grad.addColorStop(0, '#3a6cff');
-  grad.addColorStop(1, '#1a2a66');
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.arc(CX, CY, 48, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(100,160,255,0.4)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.arc(CX, CY, 52, 0, Math.PI * 2);
-  ctx.stroke();
+  // hazards
+  for (const hz of hazards) {
+    ctx.fillStyle = '#ff5c7a';
+    ctx.shadowColor = '#ff5c7a';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(hz.x, hz.y, hz.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
 
-  // orbit guide
-  ctx.strokeStyle = 'rgba(80,140,220,0.15)';
-  ctx.beginPath();
-  ctx.arc(CX, CY, radius, 0, Math.PI * 2);
-  ctx.stroke();
-
-  const px = CX + Math.cos(angle) * radius;
-  const py = CY + Math.sin(angle) * radius;
-
-  // asteroids
-  for (const a of asteroids) {
-    const ax = CX + Math.cos(a.angle) * a.radius;
-    const ay = CY + Math.sin(a.angle) * a.radius;
-    ctx.fillStyle = '#ff4d6d';
-    ctx.shadowColor = '#ff4d6d';
+  // orbs
+  for (const o of orbs) {
+    ctx.fillStyle = COLORS[o.color];
+    ctx.shadowColor = COLORS[o.color];
     ctx.shadowBlur = 12;
     ctx.beginPath();
-    ctx.arc(ax, ay, a.size, 0, Math.PI * 2);
+    ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
   }
 
-  // stars
-  for (const s of stars) {
-    const sx = CX + Math.cos(s.angle) * s.radius;
-    const sy = CY + Math.sin(s.angle) * s.radius;
-    ctx.fillStyle = '#5eead4';
-    ctx.shadowColor = '#5eead4';
-    ctx.shadowBlur = 14;
-    ctx.beginPath();
-    ctx.arc(sx, sy, s.size, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.shadowBlur = 0;
-  }
-
-  // player ship
-  ctx.save();
-  ctx.translate(px, py);
-  ctx.rotate(angle + Math.PI / 2);
-  ctx.fillStyle = alive ? '#ffe066' : '#666';
-  ctx.shadowColor = '#ffe066';
+  // player
+  ctx.fillStyle = alive ? COLORS[colorIndex] : '#666';
+  ctx.shadowColor = COLORS[colorIndex];
   ctx.shadowBlur = alive ? 16 : 0;
   ctx.beginPath();
-  ctx.moveTo(0, -player.r - 2);
-  ctx.lineTo(player.r * 0.7, player.r);
-  ctx.lineTo(-player.r * 0.7, player.r);
-  ctx.closePath();
+  ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
   ctx.fill();
   ctx.shadowBlur = 0;
-  ctx.restore();
 
-  hud.textContent = 'Orbital Dash — score ' + Math.floor(score) + ' — best ' + best + (alive ? '' : ' — crashed, press R');
+  hud.textContent = 'Hue Shift — score ' + Math.floor(score) + ' — best ' + best + (alive ? '' : ' — hit, press R') + ' — ' + COLOR_NAMES[colorIndex];
 }
-
 function loop() {
   update();
   draw();
