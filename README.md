@@ -2,12 +2,12 @@
 
 A tiny original browser game lands here every day.
 
-- Latest: [Hue Shift (2026-10-28)](games/2026-10-28/index.html)
+- Latest: [Tilt Gravity (2026-10-29)](games/2026-10-29/index.html)
 
 Open the HTML file, or download it and open it in a browser.
 
-## Hue Shift
+## Tilt Gravity
 
-WASD or ←→↑↓ to move. Space to switch color. Collect matching orbs, avoid mismatched orbs and red hazards. R restart.
+←→ or A/D to rotate gravity. Ball falls and bounces. Collect green orbs, avoid red hazards. R restart.
 
-Previous: [Shadow Delay (2026-10-27)](games/2026-10-27/index.html)
+Previous: [Hue Shift (2026-10-28)](games/2026-10-28/index.html)

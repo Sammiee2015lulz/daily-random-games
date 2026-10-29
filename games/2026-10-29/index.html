@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tilt Gravity — 2026-10-29</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #070b12; color: #c8e6ff; font-family: system-ui, sans-serif; }
+  body { display: grid; place-items: center; }
+  canvas { background: radial-gradient(circle at center, #152038, #070b12); border-radius: 12px; box-shadow: 0 0 40px #000a; max-width: 96vw; max-height: 80vh; }
+  #hud { position: fixed; top: 12px; left: 16px; font-size: 14px; }
+  #help { position: fixed; bottom: 12px; left: 16px; opacity: .75; font-size: 13px; max-width: 90vw; }
+</style>
+</head>
+<body>
+<div id="hud">Tilt Gravity</div>
+<div id="help">←→ or A/D to rotate gravity. Ball falls and bounces. Collect green orbs, avoid red hazards. R restart.</div>
+<canvas id="c" width="500" height="500"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const W = 500, H = 500;
+let best = Number(localStorage.getItem('tilt-gravity-best') || 0);
+let player, orbs, hazards, score, alive, frame, gravDir, keys = {};
+const GRAV = 0.18;
+const DIRS = [
+  { dx: 0, dy: 1, name: 'DOWN' },   // 0
+  { dx: 1, dy: 0, name: 'RIGHT' },  // 1
+  { dx: 0, dy: -1, name: 'UP' },    // 2
+  { dx: -1, dy: 0, name: 'LEFT' }   // 3
+];
+
+function reset() {
+  player = { x: 250, y: 100, r: 11, vx: 0, vy: 0 };
+  orbs = [];
+  hazards = [];
+  score = 0;
+  alive = true;
+  frame = 0;
+  gravDir = 0;
+  for (let i = 0; i < 5; i++) spawnOrb();
+  for (let i = 0; i < 4; i++) spawnHazard();
+}
+function spawnOrb() {
+  orbs.push({
+    x: 40 + Math.random() * (W - 80),
+    y: 40 + Math.random() * (H - 80),
+    r: 7
+  });
+}
+function spawnHazard() {
+  hazards.push({
+    x: 30 + Math.random() * (W - 60),
+    y: 30 + Math.random() * (H - 60),
+    r: 10 + Math.random() * 6,
+    vx: (Math.random() - 0.5) * 1.2,
+    vy: (Math.random() - 0.5) * 1.2
+  });
+}
+function rotateGravity(dir) {
+  if (!alive) return;
+  gravDir = (gravDir + dir + 4) % 4;
+}
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if (k === 'r') reset();
+  if ((k === 'arrowleft' || k === 'a') && alive) rotateGravity(-1);
+  if ((k === 'arrowright' || k === 'd') && alive) rotateGravity(1);
+});
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+function update() {
+  if (!alive) return;
+  frame++;
+  score += 0.08;
+
+  const g = DIRS[gravDir];
+  player.vx += g.dx * GRAV;
+  player.vy += g.dy * GRAV;
+  player.vx *= 0.995;
+  player.vy *= 0.995;
+  player.x += player.vx;
+  player.y += player.vy;
+
+  // walls bounce
+  if (player.x < player.r + 4) { player.x = player.r + 4; player.vx = Math.abs(player.vx) * 0.7; }
+  if (player.x > W - player.r - 4) { player.x = W - player.r - 4; player.vx = -Math.abs(player.vx) * 0.7; }
+  if (player.y < player.r + 4) { player.y = player.r + 4; player.vy = Math.abs(player.vy) * 0.7; }
+  if (player.y > H - player.r - 4) { player.y = H - player.r - 4; player.vy = -Math.abs(player.vy) * 0.7; }
+
+  // hazards move slowly and kill on contact
+  for (const hz of hazards) {
+    hz.x += hz.vx;
+    hz.y += hz.vy;
+    if (hz.x < hz.r || hz.x > W - hz.r) hz.vx *= -1;
+    if (hz.y < hz.r || hz.y > H - hz.r) hz.vy *= -1;
+    if (Math.hypot(player.x - hz.x, player.y - hz.y) < player.r + hz.r - 1) {
+      alive = false;
+    }
+  }
+  if (frame % 180 === 0 && hazards.length < 6) spawnHazard();
+
+  // orbs
+  for (let i = orbs.length - 1; i >= 0; i--) {
+    const o = orbs[i];
+    if (Math.hypot(player.x - o.x, player.y - o.y) < player.r + o.r) {
+      score += 25;
+      orbs.splice(i, 1);
+      spawnOrb();
+    }
+  }
+  if (orbs.length < 4) spawnOrb();
+
+  if (Math.floor(score) > best) {
+    best = Math.floor(score);
+    localStorage.setItem('tilt-gravity-best', String(best));
+  }
+}
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // gravity arrow indicator
+  const g = DIRS[gravDir];
+  ctx.strokeStyle = 'rgba(200,230,255,0.4)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  const ax = 40, ay = 40;
+  ctx.moveTo(ax, ay);
+  ctx.lineTo(ax + g.dx * 20, ay + g.dy * 20);
+  ctx.stroke();
+
+  // hazards
+  for (const hz of hazards) {
+    ctx.fillStyle = '#ff5c7a';
+    ctx.shadowColor = '#ff5c7a';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(hz.x, hz.y, hz.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // orbs
+  for (const o of orbs) {
+    ctx.fillStyle = '#6ee7b7';
+    ctx.shadowColor = '#6ee7b7';
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // player
+  ctx.fillStyle = alive ? '#ffe066' : '#666';
+  ctx.shadowColor = '#ffe066';
+  ctx.shadowBlur = alive ? 16 : 0;
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  hud.textContent = 'Tilt Gravity — score ' + Math.floor(score) + ' — best ' + best + (alive ? '' : ' — hit, press R') + ' — ' + g.name;
+}
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+reset();
+loop();
+</script>
+</body>
+</html>
