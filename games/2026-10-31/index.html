@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blink Shift — 2026-10-31</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #070b12; color: #c8e6ff; font-family: system-ui, sans-serif; }
+  body { display: grid; place-items: center; }
+  canvas { background: radial-gradient(circle at center, #152038, #070b12); border-radius: 12px; box-shadow: 0 0 40px #000a; max-width: 96vw; max-height: 80vh; }
+  #hud { position: fixed; top: 12px; left: 16px; font-size: 14px; }
+  #help { position: fixed; bottom: 12px; left: 16px; opacity: .75; font-size: 13px; max-width: 90vw; }
+</style>
+</head>
+<body>
+<div id="hud">Blink Shift</div>
+<div id="help">WASD or ←↑→↓ to move. Space to blink forward. Collect green orbs, avoid red hazards. R restart.</div>
+<canvas id="c" width="500" height="500"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const W = 500, H = 500;
+let best = Number(localStorage.getItem('blink-shift-best') || 0);
+let player, orbs, hazards, score, alive, frame, keys = {}, cooldown = 0;
+const BLINK_DIST = 85;
+const COOLDOWN = 45;
+
+function reset() {
+  player = { x: 250, y: 250, r: 11, vx: 0, vy: 0 };
+  orbs = [];
+  hazards = [];
+  score = 0;
+  alive = true;
+  frame = 0;
+  cooldown = 0;
+  for (let i = 0; i < 5; i++) spawnOrb();
+  for (let i = 0; i < 3; i++) spawnHazard();
+}
+function spawnOrb() {
+  orbs.push({
+    x: 40 + Math.random() * (W - 80),
+    y: 40 + Math.random() * (H - 80),
+    r: 7
+  });
+}
+function spawnHazard() {
+  hazards.push({
+    x: 30 + Math.random() * (W - 60),
+    y: 30 + Math.random() * (H - 60),
+    r: 9 + Math.random() * 5,
+    vx: (Math.random() - 0.5) * 1.4,
+    vy: (Math.random() - 0.5) * 1.4
+  });
+}
+function blink() {
+  if (!alive || cooldown > 0) return;
+  const speed = Math.hypot(player.vx, player.vy);
+  if (speed < 0.5) return; // need some movement
+  const nx = player.vx / speed;
+  const ny = player.vy / speed;
+  player.x += nx * BLINK_DIST;
+  player.y += ny * BLINK_DIST;
+  player.x = Math.max(player.r + 4, Math.min(W - player.r - 4, player.x));
+  player.y = Math.max(player.r + 4, Math.min(H - player.r - 4, player.y));
+  cooldown = COOLDOWN;
+}
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if (k === 'r') reset();
+  if ((k === ' ' || k === 'space') && alive) {
+    e.preventDefault();
+    blink();
+  }
+});
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+function update() {
+  if (!alive) return;
+  frame++;
+  score += 0.09;
+  if (cooldown > 0) cooldown--;
+
+  // movement
+  let mx = 0, my = 0;
+  if (keys['arrowleft'] || keys['a']) mx -= 1;
+  if (keys['arrowright'] || keys['d']) mx += 1;
+  if (keys['arrowup'] || keys['w']) my -= 1;
+  if (keys['arrowdown'] || keys['s']) my += 1;
+  if (mx || my) {
+    const len = Math.hypot(mx, my);
+    player.vx += (mx / len) * 0.42;
+    player.vy += (my / len) * 0.42;
+  }
+  player.vx *= 0.91;
+  player.vy *= 0.91;
+  player.x += player.vx;
+  player.y += player.vy;
+  player.x = Math.max(player.r + 4, Math.min(W - player.r - 4, player.x));
+  player.y = Math.max(player.r + 4, Math.min(H - player.r - 4, player.y));
+
+  // hazards
+  for (const hz of hazards) {
+    hz.x += hz.vx;
+    hz.y += hz.vy;
+    if (hz.x < hz.r || hz.x > W - hz.r) hz.vx *= -1;
+    if (hz.y < hz.r || hz.y > H - hz.r) hz.vy *= -1;
+    if (Math.hypot(player.x - hz.x, player.y - hz.y) < player.r + hz.r - 1) {
+      alive = false;
+    }
+  }
+  if (frame % 220 === 0 && hazards.length < 5) spawnHazard();
+
+  // orbs
+  for (let i = orbs.length - 1; i >= 0; i--) {
+    const o = orbs[i];
+    if (Math.hypot(player.x - o.x, player.y - o.y) < player.r + o.r) {
+      score += 32;
+      orbs.splice(i, 1);
+      spawnOrb();
+    }
+  }
+  if (orbs.length < 4) spawnOrb();
+
+  if (Math.floor(score) > best) {
+    best = Math.floor(score);
+    localStorage.setItem('blink-shift-best', String(best));
+  }
+}
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // hazards
+  for (const hz of hazards) {
+    ctx.fillStyle = '#ff5c7a';
+    ctx.shadowColor = '#ff5c7a';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(hz.x, hz.y, hz.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // orbs
+  for (const o of orbs) {
+    ctx.fillStyle = '#6ee7b7';
+    ctx.shadowColor = '#6ee7b7';
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // player
+  ctx.fillStyle = alive ? (cooldown > 0 ? '#a78bfa' : '#ffe066') : '#666';
+  ctx.shadowColor = cooldown > 0 ? '#a78bfa' : '#ffe066';
+  ctx.shadowBlur = alive ? 16 : 0;
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // blink cooldown bar
+  if (alive) {
+    ctx.fillStyle = 'rgba(200,230,255,0.3)';
+    ctx.fillRect(20, H - 20, 80, 6);
+    ctx.fillStyle = cooldown > 0 ? '#a78bfa' : '#6ee7b7';
+    ctx.fillRect(20, H - 20, 80 * (1 - cooldown / COOLDOWN), 6);
+  }
+
+  hud.textContent = 'Blink Shift — score ' + Math.floor(score) + ' — best ' + best + (alive ? '' : ' — hit, press R');
+}
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+reset();
+loop();
+</script>
+</body>
+</html>
