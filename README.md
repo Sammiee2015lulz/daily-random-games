@@ -2,12 +2,12 @@
 
 A tiny original browser game lands here every day.
 
-- Latest: [Blink Shift (2026-10-31)](games/2026-10-31/index.html)
+- Latest: [Gravity Flip (2026-11-01)](games/2026-11-01/index.html)
 
 Open the HTML file, or download it and open it in a browser.
 
-## Blink Shift
+## Gravity Flip
 
-WASD or ←↑→↓ to move. Space to blink forward. Collect green orbs, avoid red hazards. R restart.
+←→ or A/D to move. Space to flip gravity. Collect green orbs, avoid red hazards. R restart.
 
-Previous: [Radial Drift (2026-10-30)](games/2026-10-30/index.html)
+Previous: [Blink Shift (2026-10-31)](games/2026-10-31/index.html)
