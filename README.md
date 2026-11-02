@@ -2,12 +2,14 @@
 
 A tiny original browser game lands here every day.
 
-- Latest: [Comet Catcher (2026-11-02)](games/2026-11-02/index.html)
+- Latest: [Charge Flip (2026-11-02)](games/2026-11-02/index.html)
 
 Open the HTML file, or download it and open it in a browser.
 
-## Comet Catcher
+## Charge Flip
 
-←→ or A/D to move. Catch cyan comets, dodge red meteors. Space for boost. R restart.
+←→ or A/D to move. Space to flip charge. Collect opposite-charge orbs, avoid same-charge. R restart.
+
+Previous: [Comet Catcher (2026-11-02)](games/2026-11-02/index.html) wait no, previous was the old one, but since overwritten, better:
 
 Previous: [Gravity Flip (2026-11-01)](games/2026-11-01/index.html)
