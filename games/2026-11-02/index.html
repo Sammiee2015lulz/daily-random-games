@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Comet Catcher — 2026-11-02</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #050812; color: #d0e8ff; font-family: system-ui, sans-serif; }
+  body { display: grid; place-items: center; }
+  canvas { background: radial-gradient(ellipse at bottom, #1a2848, #050812); border-radius: 12px; box-shadow: 0 0 50px #000c; max-width: 96vw; max-height: 80vh; }
+  #hud { position: fixed; top: 12px; left: 16px; font-size: 14px; }
+  #help { position: fixed; bottom: 12px; left: 16px; opacity: .75; font-size: 13px; max-width: 90vw; }
+</style>
+</head>
+<body>
+<div id="hud">Comet Catcher</div>
+<div id="help">←→ or A/D to move. Catch cyan comets, dodge red meteors. Space for boost. R restart.</div>
+<canvas id="c" width="560" height="480"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const W = 560, H = 480;
+let best = Number(localStorage.getItem('comet-catcher-best') || 0);
+let player, items, score, alive, frame, keys = {}, boost = 0;
+
+function reset() {
+  player = { x: W / 2, y: H - 50, w: 36, h: 22, vx: 0 };
+  items = [];
+  score = 0;
+  alive = true;
+  frame = 0;
+  boost = 0;
+  for (let i = 0; i < 4; i++) spawnItem();
+}
+function spawnItem() {
+  const isMeteor = Math.random() < 0.45;
+  items.push({
+    x: 20 + Math.random() * (W - 40),
+    y: -20 - Math.random() * 100,
+    r: isMeteor ? 12 + Math.random() * 8 : 8,
+    vy: 1.2 + Math.random() * 2.2 + (isMeteor ? 0.4 : 0),
+    type: isMeteor ? 'meteor' : 'comet',
+    rot: Math.random() * Math.PI * 2,
+    spin: (Math.random() - 0.5) * 0.15
+  });
+}
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if (k === 'r') reset();
+  if (k === ' ' && alive) {
+    e.preventDefault();
+    boost = 40;
+  }
+});
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+function update() {
+  if (!alive) return;
+  frame++;
+  score += 0.05;
+  if (boost > 0) boost--;
+
+  if (keys['arrowleft'] || keys['a']) player.vx -= 0.6;
+  if (keys['arrowright'] || keys['d']) player.vx += 0.6;
+  player.vx *= 0.82;
+  player.x += player.vx;
+  player.x = Math.max(player.w / 2 + 6, Math.min(W - player.w / 2 - 6, player.x));
+
+  for (let i = items.length - 1; i >= 0; i--) {
+    const it = items[i];
+    it.y += it.vy;
+    it.rot += it.spin;
+    if (it.y > H + 30) {
+      items.splice(i, 1);
+      continue;
+    }
+    const dx = player.x - it.x;
+    const dy = player.y - it.y;
+    const dist = Math.hypot(dx, dy);
+    const hitR = it.type === 'comet' ? it.r + 14 : it.r + 16;
+    if (dist < hitR) {
+      if (it.type === 'comet') {
+        score += 25;
+        items.splice(i, 1);
+        spawnItem();
+      } else {
+        alive = false;
+      }
+    }
+  }
+  if (frame % 28 === 0 && items.length < 8) spawnItem();
+  if (frame % 180 === 0) {
+    items.forEach(it => it.vy += 0.08);
+  }
+
+  if (Math.floor(score) > best) {
+    best = Math.floor(score);
+    localStorage.setItem('comet-catcher-best', String(best));
+  }
+}
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // starfield
+  ctx.fillStyle = '#ffffff';
+  for (let i = 0; i < 40; i++) {
+    const sy = (i * 37 + frame * 0.6) % H;
+    const sx = (i * 83) % W;
+    ctx.globalAlpha = 0.3 + (i % 5) * 0.1;
+    ctx.fillRect(sx, sy, 1.5, 1.5);
+  }
+  ctx.globalAlpha = 1;
+
+  // items
+  for (const it of items) {
+    ctx.save();
+    ctx.translate(it.x, it.y);
+    ctx.rotate(it.rot);
+    if (it.type === 'comet') {
+      ctx.fillStyle = '#5eead4';
+      ctx.shadowColor = '#5eead4';
+      ctx.shadowBlur = 14;
+      ctx.beginPath();
+      ctx.arc(0, 0, it.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(-it.r * 0.3, -it.r * 0.3, it.r * 0.35, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = '#ff6b6b';
+      ctx.shadowColor = '#ff6b6b';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      for (let a = 0; a < 6; a++) {
+        const ang = a * Math.PI / 3;
+        const rad = it.r * (a % 2 === 0 ? 1 : 0.65);
+        ctx.lineTo(Math.cos(ang) * rad, Math.sin(ang) * rad);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+    ctx.shadowBlur = 0;
+  }
+
+  // player ship
+  ctx.save();
+  ctx.translate(player.x, player.y);
+  ctx.fillStyle = alive ? (boost > 0 ? '#fde047' : '#60a5fa') : '#555';
+  ctx.shadowColor = alive ? (boost > 0 ? '#fde047' : '#60a5fa') : '#000';
+  ctx.shadowBlur = alive ? 16 : 0;
+  ctx.beginPath();
+  ctx.moveTo(0, -player.h / 2);
+  ctx.lineTo(player.w / 2, player.h / 2);
+  ctx.lineTo(-player.w / 2, player.h / 2);
+  ctx.closePath();
+  ctx.fill();
+  // engine glow
+  if (alive && (Math.abs(player.vx) > 0.5 || boost > 0)) {
+    ctx.fillStyle = boost > 0 ? '#fbbf24' : '#93c5fd';
+    ctx.beginPath();
+    ctx.moveTo(-6, player.h / 2);
+    ctx.lineTo(6, player.h / 2);
+    ctx.lineTo(0, player.h / 2 + 10 + Math.random() * 6);
+    ctx.fill();
+  }
+  ctx.restore();
+  ctx.shadowBlur = 0;
+
+  hud.textContent = 'Comet Catcher — score ' + Math.floor(score) + ' — best ' + best + (alive ? '' : ' — crashed, press R') + (boost > 0 ? ' — BOOST' : '');
+}
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+reset();
+loop();
+</script>
+</body>
+</html>
