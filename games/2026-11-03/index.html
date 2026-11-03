@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Polar Pull — 2026-11-03</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a0e17; color: #e0e8ff; font-family: system-ui, sans-serif; }
+  body { display: grid; place-items: center; }
+  canvas { background: radial-gradient(ellipse at bottom, #1a2332, #0a0e17); border-radius: 12px; box-shadow: 0 0 40px #000c; max-width: 96vw; max-height: 80vh; }
+  #hud { position: fixed; top: 12px; left: 16px; font-size: 14px; }
+  #help { position: fixed; bottom: 12px; left: 16px; opacity: .75; font-size: 13px; max-width: 90vw; }
+</style>
+</head>
+<body>
+<div id="hud">Polar Pull</div>
+<div id="help">←→↑↓ or WASD to move. Space to toggle attract/repel. Collect green orbs, avoid red hazards. R restart.</div>
+<canvas id="c" width="520" height="480"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const W = 520, H = 480;
+let best = Number(localStorage.getItem('polar-pull-best') || 0);
+let player, orbs, hazards, score, alive, frame, keys = {}, mode = 1; // 1 attract, -1 repel
+
+function reset() {
+  player = { x: W / 2, y: H / 2, r: 12, vx: 0, vy: 0 };
+  orbs = [];
+  hazards = [];
+  score = 0;
+  alive = true;
+  frame = 0;
+  mode = 1;
+  for (let i = 0; i < 6; i++) spawnOrb();
+  for (let i = 0; i < 3; i++) spawnHazard();
+}
+function spawnOrb() {
+  orbs.push({
+    x: 30 + Math.random() * (W - 60),
+    y: 30 + Math.random() * (H - 60),
+    r: 7,
+    vx: (Math.random() - 0.5) * 0.5,
+    vy: (Math.random() - 0.5) * 0.5
+  });
+}
+function spawnHazard() {
+  hazards.push({
+    x: 40 + Math.random() * (W - 80),
+    y: 40 + Math.random() * (H - 80),
+    r: 8 + Math.random() * 3,
+    vx: (Math.random() - 0.5) * 0.8,
+    vy: (Math.random() - 0.5) * 0.8
+  });
+}
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if (k === 'r') reset();
+  if ((k === ' ' || k === 'space') && alive) {
+    e.preventDefault();
+    mode *= -1;
+  }
+});
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+function applyForce(obj, strength) {
+  const dx = player.x - obj.x;
+  const dy = player.y - obj.y;
+  const dist = Math.hypot(dx, dy) || 1;
+  const force = strength * mode / (dist * dist + 100);
+  obj.vx += (dx / dist) * force;
+  obj.vy += (dy / dist) * force;
+  obj.vx *= 0.98;
+  obj.vy *= 0.98;
+  obj.x += obj.vx;
+  obj.y += obj.vy;
+  // bounce walls
+  if (obj.x < obj.r) { obj.x = obj.r; obj.vx *= -0.6; }
+  if (obj.x > W - obj.r) { obj.x = W - obj.r; obj.vx *= -0.6; }
+  if (obj.y < obj.r) { obj.y = obj.r; obj.vy *= -0.6; }
+  if (obj.y > H - obj.r) { obj.y = H - obj.r; obj.vy *= -0.6; }
+}
+
+function update() {
+  if (!alive) return;
+  frame++;
+  score += 0.05;
+
+  // player movement
+  if (keys['arrowleft'] || keys['a']) player.vx -= 0.4;
+  if (keys['arrowright'] || keys['d']) player.vx += 0.4;
+  if (keys['arrowup'] || keys['w']) player.vy -= 0.4;
+  if (keys['arrowdown'] || keys['s']) player.vy += 0.4;
+  player.vx *= 0.88;
+  player.vy *= 0.88;
+  player.x += player.vx;
+  player.y += player.vy;
+  player.x = Math.max(player.r + 2, Math.min(W - player.r - 2, player.x));
+  player.y = Math.max(player.r + 2, Math.min(H - player.r - 2, player.y));
+
+  // apply magnetic forces
+  for (const o of orbs) applyForce(o, 180);
+  for (const hz of hazards) applyForce(hz, 140);
+
+  // collect orbs
+  for (let i = orbs.length - 1; i >= 0; i--) {
+    const o = orbs[i];
+    if (Math.hypot(player.x - o.x, player.y - o.y) < player.r + o.r) {
+      score += 18;
+      orbs.splice(i, 1);
+      spawnOrb();
+    }
+  }
+
+  // hit hazards
+  for (const hz of hazards) {
+    if (Math.hypot(player.x - hz.x, player.y - hz.y) < player.r + hz.r - 1) {
+      alive = false;
+    }
+  }
+  if (frame % 180 === 0 && hazards.length < 5) spawnHazard();
+  if (orbs.length < 5) spawnOrb();
+
+  if (Math.floor(score) > best) {
+    best = Math.floor(score);
+    localStorage.setItem('polar-pull-best', String(best));
+  }
+}
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // mode glow
+  ctx.fillStyle = mode > 0 ? 'rgba(110,231,183,0.08)' : 'rgba(248,113,113,0.08)';
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, 80, 0, Math.PI * 2);
+  ctx.fill();
+
+  // hazards
+  for (const hz of hazards) {
+    ctx.fillStyle = '#f87171';
+    ctx.shadowColor = '#f87171';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(hz.x, hz.y, hz.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // orbs
+  for (const o of orbs) {
+    ctx.fillStyle = '#6ee7b7';
+    ctx.shadowColor = '#6ee7b7';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // player
+  ctx.fillStyle = alive ? (mode > 0 ? '#34d399' : '#fb7185') : '#555';
+  ctx.shadowColor = alive ? (mode > 0 ? '#34d399' : '#fb7185') : '#000';
+  ctx.shadowBlur = alive ? 16 : 0;
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // mode indicator
+  if (alive) {
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 12px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText(mode > 0 ? 'A' : 'R', player.x, player.y + 4);
+  }
+
+  hud.textContent = 'Polar Pull — score ' + Math.floor(score) + ' — best ' + best + (alive ? '' : ' — hit, press R') + ' — ' + (mode > 0 ? 'ATTRACT' : 'REPEL');
+}
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+reset();
+loop();
+</script>
+</body>
+</html>
