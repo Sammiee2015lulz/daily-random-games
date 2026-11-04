@@ -2,12 +2,12 @@
 
 A tiny original browser game lands here every day.
 
-- Latest: [Polar Pull (2026-11-03)](games/2026-11-03/index.html)
+- Latest: [Pulse Catch (2026-11-04)](games/2026-11-04/index.html)
 
 Open the HTML file, or download it and open it in a browser.
 
-## Polar Pull
+## Pulse Catch
 
-←→↑↓ or WASD to move. Space to toggle attract/repel. Collect green orbs, avoid red hazards. R restart.
+WASD or ←↑→↓ to move. Space to fire expanding pulse (collects orbs, pushes hazards). R restart.
 
-Previous: [Charge Flip (2026-11-02)](games/2026-11-02/index.html)
+Previous: [Polar Pull (2026-11-03)](games/2026-11-03/index.html)
