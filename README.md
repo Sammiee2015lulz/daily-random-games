@@ -2,12 +2,12 @@
 
 A tiny original browser game lands here every day.
 
-- Latest: [Hue Shift (2026-11-06)](games/2026-11-06/index.html)
+- Latest: [Trail Snag (2026-11-07)](games/2026-11-07/index.html)
 
 Open the HTML file, or download it and open it in a browser.
 
-## Hue Shift
+## Trail Snag
 
-WASD or ←↑→↓ to move. Space to cycle hue. Collect matching color orbs, avoid black hazards. R restart.
+WASD or ←↑→↓ to move. Your fading trail snags orbs. Avoid touching hazards with your body. R restart.
 
-Previous: [Gravity Flip (2026-11-05)](games/2026-11-05/index.html)
+Previous: [Hue Shift (2026-11-06)](games/2026-11-06/index.html)
