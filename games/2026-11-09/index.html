@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gravity Flip — 2026-11-09</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a0e17; color: #e0e8ff; font-family: system-ui, sans-serif; }
+  body { display: grid; place-items: center; }
+  canvas { background: linear-gradient(180deg, #12182a, #0a0e17); border-radius: 12px; box-shadow: 0 0 40px #000c; max-width: 96vw; max-height: 80vh; }
+  #hud { position: fixed; top: 12px; left: 16px; font-size: 14px; }
+  #help { position: fixed; bottom: 12px; left: 16px; opacity: .75; font-size: 13px; max-width: 90vw; }
+</style>
+</head>
+<body>
+<div id="hud">Gravity Flip</div>
+<div id="help">A/D or ←→ to move. Space to flip gravity. Collect stars, avoid spikes. R restart.</div>
+<canvas id="c" width="480" height="520"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const W = 480, H = 520;
+let best = Number(localStorage.getItem('gravity-flip-best') || 0);
+let player, stars, spikes, score, alive, frame, keys = {}, gravity;
+
+function reset() {
+  player = { x: W / 2, y: H / 2, r: 12, vx: 0, vy: 0 };
+  gravity = 0.28; // positive = down
+  stars = [];
+  spikes = [];
+  score = 0;
+  alive = true;
+  frame = 0;
+  for (let i = 0; i < 5; i++) spawnStar();
+  for (let i = 0; i < 4; i++) spawnSpike();
+}
+function spawnStar() {
+  stars.push({
+    x: 40 + Math.random() * (W - 80),
+    y: 60 + Math.random() * (H - 120),
+    r: 7,
+    vx: (Math.random() - 0.5) * 0.6,
+    vy: (Math.random() - 0.5) * 0.3
+  });
+}
+function spawnSpike() {
+  const side = Math.random() < 0.5 ? 'floor' : 'ceil';
+  spikes.push({
+    x: 30 + Math.random() * (W - 60),
+    y: side === 'floor' ? H - 18 : 18,
+    w: 22 + Math.random() * 18,
+    h: 14,
+    side
+  });
+}
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if (k === ' ' || k === 'spacebar') {
+    e.preventDefault();
+    gravity *= -1;
+  }
+  if (k === 'r') reset();
+});
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+function update() {
+  if (!alive) return;
+  frame++;
+  score += 0.05;
+
+  // horizontal movement
+  if (keys['arrowleft'] || keys['a']) player.vx -= 0.45;
+  if (keys['arrowright'] || keys['d']) player.vx += 0.45;
+  player.vx *= 0.92;
+  player.x += player.vx;
+  if (player.x < player.r + 4) { player.x = player.r + 4; player.vx = 0; }
+  if (player.x > W - player.r - 4) { player.x = W - player.r - 4; player.vx = 0; }
+
+  // gravity
+  player.vy += gravity;
+  player.y += player.vy;
+
+  // bounce/stick on floor and ceiling (soft)
+  if (player.y > H - player.r - 4) {
+    player.y = H - player.r - 4;
+    player.vy = 0;
+  }
+  if (player.y < player.r + 4) {
+    player.y = player.r + 4;
+    player.vy = 0;
+  }
+
+  // stars drift
+  for (const s of stars) {
+    s.x += s.vx;
+    s.y += s.vy * (gravity > 0 ? 1 : -0.4);
+    if (s.x < s.r || s.x > W - s.r) s.vx *= -1;
+    if (s.y < 40 || s.y > H - 40) s.vy *= -1;
+  }
+
+  // collect
+  for (let i = stars.length - 1; i >= 0; i--) {
+    const s = stars[i];
+    if (Math.hypot(player.x - s.x, player.y - s.y) < player.r + s.r) {
+      score += 22;
+      stars.splice(i, 1);
+      spawnStar();
+    }
+  }
+  if (stars.length < 4) spawnStar();
+
+  // spikes kill if close to floor/ceil and overlapping x
+  for (const sp of spikes) {
+    const near = sp.side === 'floor' ? player.y > H - 36 : player.y < 36;
+    if (near && player.x > sp.x - sp.w / 2 - player.r && player.x < sp.x + sp.w / 2 + player.r) {
+      alive = false;
+    }
+  }
+  if (frame % 180 === 0 && spikes.length < 7) spawnSpike();
+
+  if (Math.floor(score) > best) {
+    best = Math.floor(score);
+    localStorage.setItem('gravity-flip-best', String(best));
+  }
+}
+function drawSpike(sp) {
+  ctx.fillStyle = '#f87171';
+  ctx.beginPath();
+  const dir = sp.side === 'floor' ? -1 : 1;
+  const baseY = sp.side === 'floor' ? H : 0;
+  ctx.moveTo(sp.x - sp.w / 2, baseY);
+  ctx.lineTo(sp.x, baseY + dir * sp.h);
+  ctx.lineTo(sp.x + sp.w / 2, baseY);
+  ctx.closePath();
+  ctx.fill();
+}
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // gravity indicator
+  ctx.fillStyle = gravity > 0 ? '#60a5fa' : '#fbbf24';
+  ctx.font = '12px system-ui';
+  ctx.fillText(gravity > 0 ? '▼ DOWN' : '▲ UP', W - 70, 22);
+
+  // spikes
+  for (const sp of spikes) drawSpike(sp);
+
+  // stars
+  for (const s of stars) {
+    ctx.fillStyle = '#fde68a';
+    ctx.shadowColor = '#fde68a';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // player
+  ctx.fillStyle = alive ? (gravity > 0 ? '#60a5fa' : '#fbbf24') : '#555';
+  ctx.shadowColor = alive ? (gravity > 0 ? '#60a5fa' : '#fbbf24') : '#000';
+  ctx.shadowBlur = alive ? 14 : 0;
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  hud.textContent = 'Gravity Flip — score ' + Math.floor(score) + ' — best ' + best + (alive ? '' : ' — hit, press R');
+}
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+reset();
+loop();
+</script>
+</body>
+</html>
