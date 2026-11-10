@@ -2,12 +2,12 @@
 
 A tiny original browser game lands here every day.
 
-- Latest: [Gravity Flip (2026-11-09)](games/2026-11-09/index.html)
+- Latest: [Pulse Pull (2026-11-10)](games/2026-11-10/index.html)
 
 Open the HTML file, or download it and open it in a browser.
 
-## Gravity Flip
+## Pulse Pull
 
-A/D or ←→ to move. Space to flip gravity. Collect stars, avoid spikes. R restart.
+WASD or ←↑→↓ to move. Space to emit a magnetic pulse that pulls nearby orbs in. Avoid red hazards. R restart.
 
-Previous: [Steer Bounce (2026-11-08)](games/2026-11-08/index.html)
+Previous: [Gravity Flip (2026-11-09)](games/2026-11-09/index.html)

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pulse Pull — 2026-11-10</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #070b12; color: #e0e8ff; font-family: system-ui, sans-serif; }
+  body { display: grid; place-items: center; }
+  canvas { background: radial-gradient(ellipse at center, #1a2332, #070b12); border-radius: 12px; box-shadow: 0 0 40px #000c; max-width: 96vw; max-height: 80vh; }
+  #hud { position: fixed; top: 12px; left: 16px; font-size: 14px; }
+  #help { position: fixed; bottom: 12px; left: 16px; opacity: .75; font-size: 13px; max-width: 90vw; }
+</style>
+</head>
+<body>
+<div id="hud">Pulse Pull</div>
+<div id="help">WASD or ←↑→↓ to move. Space to emit a magnetic pulse that pulls nearby orbs in. Avoid red hazards. R restart.</div>
+<canvas id="c" width="520" height="480"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const W = 520, H = 480;
+let best = Number(localStorage.getItem('pulse-pull-best') || 0);
+let player, orbs, hazards, pulses, score, alive, frame, keys = {}, cooldown;
+
+function reset() {
+  player = { x: W / 2, y: H / 2, r: 12, vx: 0, vy: 0 };
+  orbs = [];
+  hazards = [];
+  pulses = [];
+  score = 0;
+  alive = true;
+  frame = 0;
+  cooldown = 0;
+  for (let i = 0; i < 6; i++) spawnOrb();
+  for (let i = 0; i < 3; i++) spawnHazard();
+}
+function spawnOrb() {
+  orbs.push({
+    x: 40 + Math.random() * (W - 80),
+    y: 40 + Math.random() * (H - 80),
+    r: 6 + Math.random() * 3,
+    vx: (Math.random() - 0.5) * 0.7,
+    vy: (Math.random() - 0.5) * 0.7
+  });
+}
+function spawnHazard() {
+  hazards.push({
+    x: 50 + Math.random() * (W - 100),
+    y: 50 + Math.random() * (H - 100),
+    r: 10 + Math.random() * 4,
+    vx: (Math.random() - 0.5) * 1.2,
+    vy: (Math.random() - 0.5) * 1.2
+  });
+}
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if (k === ' ' || k === 'spacebar') {
+    e.preventDefault();
+    if (cooldown <= 0 && alive) {
+      pulses.push({ x: player.x, y: player.y, r: 10, max: 140, life: 40 });
+      cooldown = 50;
+    }
+  }
+  if (k === 'r') reset();
+});
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+function update() {
+  if (!alive) return;
+  frame++;
+  score += 0.04;
+  if (cooldown > 0) cooldown--;
+
+  // movement
+  if (keys['arrowleft'] || keys['a']) player.vx -= 0.48;
+  if (keys['arrowright'] || keys['d']) player.vx += 0.48;
+  if (keys['arrowup'] || keys['w']) player.vy -= 0.48;
+  if (keys['arrowdown'] || keys['s']) player.vy += 0.48;
+  player.vx *= 0.88;
+  player.vy *= 0.88;
+  player.x += player.vx;
+  player.y += player.vy;
+  player.x = Math.max(player.r + 4, Math.min(W - player.r - 4, player.x));
+  player.y = Math.max(player.r + 4, Math.min(H - player.r - 4, player.y));
+
+  // pulses expand and pull
+  for (let i = pulses.length - 1; i >= 0; i--) {
+    const p = pulses[i];
+    p.r += (p.max - p.r) * 0.12;
+    p.life--;
+    if (p.life <= 0) { pulses.splice(i, 1); continue; }
+    // pull orbs
+    for (const o of orbs) {
+      const dx = p.x - o.x, dy = p.y - o.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < p.r + 30 && dist > 8) {
+        const force = 0.18 * (1 - dist / (p.r + 30));
+        o.vx += (dx / dist) * force;
+        o.vy += (dy / dist) * force;
+      }
+    }
+  }
+
+  // orbs drift + friction
+  for (const o of orbs) {
+    o.x += o.vx;
+    o.y += o.vy;
+    o.vx *= 0.98;
+    o.vy *= 0.98;
+    if (o.x < o.r || o.x > W - o.r) o.vx *= -1;
+    if (o.y < o.r || o.y > H - o.r) o.vy *= -1;
+  }
+
+  // hazards
+  for (const hz of hazards) {
+    hz.x += hz.vx;
+    hz.y += hz.vy;
+    if (hz.x < hz.r || hz.x > W - hz.r) hz.vx *= -1;
+    if (hz.y < hz.r || hz.y > H - hz.r) hz.vy *= -1;
+    if (Math.hypot(player.x - hz.x, player.y - hz.y) < player.r + hz.r - 2) {
+      alive = false;
+    }
+  }
+  if (frame % 260 === 0 && hazards.length < 5) spawnHazard();
+
+  // collect orbs
+  for (let i = orbs.length - 1; i >= 0; i--) {
+    const o = orbs[i];
+    if (Math.hypot(player.x - o.x, player.y - o.y) < player.r + o.r) {
+      score += 24;
+      orbs.splice(i, 1);
+      spawnOrb();
+    }
+  }
+  if (orbs.length < 5) spawnOrb();
+
+  if (Math.floor(score) > best) {
+    best = Math.floor(score);
+    localStorage.setItem('pulse-pull-best', String(best));
+  }
+}
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // pulses
+  for (const p of pulses) {
+    ctx.strokeStyle = `rgba(96, 165, 250, ${0.15 + (p.life / 40) * 0.4})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // hazards
+  for (const hz of hazards) {
+    ctx.fillStyle = '#f87171';
+    ctx.shadowColor = '#f87171';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(hz.x, hz.y, hz.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // orbs
+  for (const o of orbs) {
+    ctx.fillStyle = '#6ee7b7';
+    ctx.shadowColor = '#6ee7b7';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // player
+  ctx.fillStyle = alive ? '#60a5fa' : '#555';
+  ctx.shadowColor = alive ? '#60a5fa' : '#000';
+  ctx.shadowBlur = alive ? 16 : 0;
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // cooldown indicator
+  if (cooldown > 0) {
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.fillRect(player.x - 10, player.y - 22, 20 * (1 - cooldown / 50), 3);
+  }
+
+  hud.textContent = 'Pulse Pull — score ' + Math.floor(score) + ' — best ' + best + (alive ? '' : ' — hit, press R');
+}
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+reset();
+loop();
+</script>
+</body>
+</html>
