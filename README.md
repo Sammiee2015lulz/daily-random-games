@@ -2,12 +2,12 @@
 
 A tiny original browser game lands here every day.
 
-- Latest: [Pulse Pull (2026-11-10)](games/2026-11-10/index.html)
+- Latest: [Orbit Catch (2026-11-11)](games/2026-11-11/index.html)
 
 Open the HTML file, or download it and open it in a browser.
 
-## Pulse Pull
+## Orbit Catch
 
-WASD or ←↑→↓ to move. Space to emit a magnetic pulse that pulls nearby orbs in. Avoid red hazards. R restart.
+A/D or ←→ to change orbit speed. W/S or ↑↓ to expand/shrink radius. Collect green orbs, avoid red hazards. R restart.
 
-Previous: [Gravity Flip (2026-11-09)](games/2026-11-09/index.html)
+Previous: [Pulse Pull (2026-11-10)](games/2026-11-10/index.html)
