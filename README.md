@@ -2,12 +2,12 @@
 
 A tiny original browser game lands here every day.
 
-- Latest: [Gravity Flip (2026-11-13)](games/2026-11-13/index.html)
+- Latest: [Phase Flip (2026-11-14)](games/2026-11-14/index.html)
 
 Open the HTML file, or download it and open it in a browser.
 
-## Gravity Flip
+## Phase Flip
 
-A/D or ←→ to move left/right. Space to flip gravity. Collect green orbs, avoid red hazards. R restart.
+Arrows / WASD to move. Space to flip phase (blue ↔ green). Collect same-phase orbs, avoid same-phase hazards. Opposite phase items pass through harmlessly. R restart.
 
-Previous: [Pendulum Catch (2026-11-12)](games/2026-11-12/index.html)
+Previous: [Gravity Flip (2026-11-13)](games/2026-11-13/index.html)
