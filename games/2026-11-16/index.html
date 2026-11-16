@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gravity Flip — 2026-11-16</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #070b12; color: #e0e8ff; font-family: system-ui, sans-serif; }
+  body { display: grid; place-items: center; }
+  canvas { background: radial-gradient(ellipse at center, #1a2332, #070b12); border-radius: 12px; box-shadow: 0 0 40px #000c; max-width: 96vw; max-height: 80vh; }
+  #hud { position: fixed; top: 12px; left: 16px; font-size: 14px; }
+  #help { position: fixed; bottom: 12px; left: 16px; opacity: .75; font-size: 13px; max-width: 90vw; }
+</style>
+</head>
+<body>
+<div id="hud">Gravity Flip</div>
+<div id="help">←→ / A D to move. Space to flip gravity (down ↔ up). Collect orbs, avoid hazards. Everything falls. R restart.</div>
+<canvas id="c" width="520" height="480"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const W = 520, H = 480;
+let best = Number(localStorage.getItem('gravity-flip-best') || 0);
+let player, orbs, hazards, score, alive, frame, keys = {}, gravityDown, cooldown;
+
+function reset() {
+  player = { x: W / 2, y: H / 2, r: 12, vx: 0, vy: 0 };
+  orbs = [];
+  hazards = [];
+  score = 0;
+  alive = true;
+  frame = 0;
+  gravityDown = true;
+  cooldown = 0;
+  for (let i = 0; i < 6; i++) spawnOrb();
+  for (let i = 0; i < 3; i++) spawnHazard();
+}
+function spawnOrb() {
+  orbs.push({
+    x: 40 + Math.random() * (W - 80),
+    y: 40 + Math.random() * (H - 80),
+    r: 6 + Math.random() * 3,
+    vx: (Math.random() - 0.5) * 1.2,
+    vy: 0
+  });
+}
+function spawnHazard() {
+  hazards.push({
+    x: 50 + Math.random() * (W - 100),
+    y: 50 + Math.random() * (H - 100),
+    r: 9 + Math.random() * 4,
+    vx: (Math.random() - 0.5) * 1.5,
+    vy: 0
+  });
+}
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if (k === ' ' || k === 'spacebar') {
+    e.preventDefault();
+    if (cooldown <= 0 && alive) {
+      gravityDown = !gravityDown;
+      cooldown = 30;
+    }
+  }
+  if (k === 'r') reset();
+});
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+function applyGravity(obj, g) {
+  obj.vy += g;
+  obj.x += obj.vx;
+  obj.y += obj.vy;
+  // horizontal bounce
+  if (obj.x < obj.r) { obj.x = obj.r; obj.vx *= -0.7; }
+  if (obj.x > W - obj.r) { obj.x = W - obj.r; obj.vx *= -0.7; }
+  // vertical "floor"
+  if (g > 0) { // down
+    if (obj.y > H - obj.r) { obj.y = H - obj.r; obj.vy *= -0.4; if (Math.abs(obj.vy) < 0.5) obj.vy = 0; }
+  } else { // up
+    if (obj.y < obj.r) { obj.y = obj.r; obj.vy *= -0.4; if (Math.abs(obj.vy) < 0.5) obj.vy = 0; }
+  }
+}
+
+function update() {
+  if (!alive) return;
+  frame++;
+  score += 0.035;
+  if (cooldown > 0) cooldown--;
+
+  const g = gravityDown ? 0.28 : -0.28;
+
+  // player horizontal control
+  if (keys['arrowleft'] || keys['a']) player.vx -= 0.55;
+  if (keys['arrowright'] || keys['d']) player.vx += 0.55;
+  player.vx *= 0.92;
+
+  applyGravity(player, g);
+
+  // orbs
+  for (const o of orbs) {
+    applyGravity(o, g * 0.7);
+    o.vx *= 0.99;
+  }
+
+  // hazards
+  for (const hz of hazards) {
+    applyGravity(hz, g * 0.85);
+    hz.vx *= 0.995;
+    if (Math.hypot(player.x - hz.x, player.y - hz.y) < player.r + hz.r - 1) {
+      alive = false;
+    }
+  }
+  if (frame % 280 === 0 && hazards.length < 5) spawnHazard();
+
+  // collect orbs
+  for (let i = orbs.length - 1; i >= 0; i--) {
+    const o = orbs[i];
+    if (Math.hypot(player.x - o.x, player.y - o.y) < player.r + o.r) {
+      score += 22;
+      orbs.splice(i, 1);
+      spawnOrb();
+    }
+  }
+  if (orbs.length < 5) spawnOrb();
+
+  if (Math.floor(score) > best) {
+    best = Math.floor(score);
+    localStorage.setItem('gravity-flip-best', String(best));
+  }
+}
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // gravity indicator bars
+  ctx.fillStyle = gravityDown ? 'rgba(251,191,36,0.08)' : 'rgba(96,165,250,0.08)';
+  if (gravityDown) {
+    ctx.fillRect(0, H - 40, W, 40);
+  } else {
+    ctx.fillRect(0, 0, W, 40);
+  }
+
+  // hazards
+  for (const hz of hazards) {
+    ctx.fillStyle = '#f87171';
+    ctx.shadowColor = '#f87171';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(hz.x, hz.y, hz.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // orbs
+  for (const o of orbs) {
+    ctx.fillStyle = '#6ee7b7';
+    ctx.shadowColor = '#6ee7b7';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // player
+  ctx.fillStyle = alive ? (gravityDown ? '#fbbf24' : '#60a5fa') : '#555';
+  ctx.shadowColor = alive ? (gravityDown ? '#fbbf24' : '#60a5fa') : '#000';
+  ctx.shadowBlur = alive ? 16 : 0;
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // cooldown
+  if (cooldown > 0) {
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillRect(player.x - 14, player.y - player.r - 8, 28 * (1 - cooldown / 30), 3);
+  }
+
+  const dir = gravityDown ? 'down' : 'up';
+  hud.textContent = 'Gravity Flip — gravity ' + dir + ' — score ' + Math.floor(score) + ' — best ' + best + (alive ? '' : ' — hit, press R');
+}
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+reset();
+loop();
+</script>
+</body>
+</html>
