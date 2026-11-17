@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orbit Shift — 2026-11-17</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #070b12; color: #e0e8ff; font-family: system-ui, sans-serif; }
+  body { display: grid; place-items: center; }
+  canvas { background: radial-gradient(ellipse at center, #1a2332, #070b12); border-radius: 12px; box-shadow: 0 0 40px #000c; max-width: 96vw; max-height: 80vh; }
+  #hud { position: fixed; top: 12px; left: 16px; font-size: 14px; }
+  #help { position: fixed; bottom: 12px; left: 16px; opacity: .75; font-size: 13px; max-width: 90vw; }
+</style>
+</head>
+<body>
+<div id="hud">Orbit Shift</div>
+<div id="help">A/D or ←→ change spin speed. W/S or ↑↓ change orbit radius. Space reverse direction. Collect green orbs, avoid red hazards. R restart.</div>
+<canvas id="c" width="520" height="480"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const W = 520, H = 480;
+const CX = W / 2, CY = H / 2;
+let best = Number(localStorage.getItem('orbit-shift-best') || 0);
+let player, orbs, hazards, score, alive, frame, keys = {}, spin, radius, cooldown;
+
+function reset() {
+  player = { r: 11 };
+  orbs = [];
+  hazards = [];
+  score = 0;
+  alive = true;
+  frame = 0;
+  spin = 0.035;
+  radius = 120;
+  cooldown = 0;
+  for (let i = 0; i < 7; i++) spawnOrb();
+  for (let i = 0; i < 3; i++) spawnHazard();
+}
+function spawnOrb() {
+  orbs.push({
+    ang: Math.random() * Math.PI * 2,
+    rad: 50 + Math.random() * 170,
+    r: 6 + Math.random() * 3,
+    spin: (Math.random() - 0.5) * 0.012
+  });
+}
+function spawnHazard() {
+  hazards.push({
+    ang: Math.random() * Math.PI * 2,
+    rad: 60 + Math.random() * 150,
+    r: 9 + Math.random() * 4,
+    spin: (Math.random() - 0.5) * 0.018
+  });
+}
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if (k === ' ' || k === 'spacebar') {
+    e.preventDefault();
+    if (cooldown <= 0 && alive) {
+      spin *= -1;
+      cooldown = 20;
+    }
+  }
+  if (k === 'r') reset();
+});
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+function pos(ang, rad) {
+  return { x: CX + Math.cos(ang) * rad, y: CY + Math.sin(ang) * rad };
+}
+
+function update() {
+  if (!alive) return;
+  frame++;
+  score += 0.04;
+  if (cooldown > 0) cooldown--;
+
+  // controls
+  if (keys['arrowleft'] || keys['a']) spin -= 0.0018;
+  if (keys['arrowright'] || keys['d']) spin += 0.0018;
+  if (keys['arrowup'] || keys['w']) radius -= 1.4;
+  if (keys['arrowdown'] || keys['s']) radius += 1.4;
+  spin = Math.max(-0.12, Math.min(0.12, spin));
+  radius = Math.max(35, Math.min(210, radius));
+
+  player.ang = (player.ang || 0) + spin;
+
+  // orbs
+  for (const o of orbs) {
+    o.ang += o.spin;
+  }
+  // hazards
+  for (const hz of hazards) {
+    hz.ang += hz.spin;
+    const p = pos(player.ang, radius);
+    const h = pos(hz.ang, hz.rad);
+    if (Math.hypot(p.x - h.x, p.y - h.y) < player.r + hz.r - 1) {
+      alive = false;
+    }
+  }
+  if (frame % 260 === 0 && hazards.length < 5) spawnHazard();
+
+  // collect
+  const p = pos(player.ang, radius);
+  for (let i = orbs.length - 1; i >= 0; i--) {
+    const o = orbs[i];
+    const op = pos(o.ang, o.rad);
+    if (Math.hypot(p.x - op.x, p.y - op.y) < player.r + o.r + 2) {
+      score += 22;
+      orbs.splice(i, 1);
+      spawnOrb();
+    }
+  }
+  if (orbs.length < 6) spawnOrb();
+
+  if (Math.floor(score) > best) {
+    best = Math.floor(score);
+    localStorage.setItem('orbit-shift-best', String(best));
+  }
+}
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // center body
+  ctx.fillStyle = '#334155';
+  ctx.beginPath();
+  ctx.arc(CX, CY, 18, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#64748b';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // orbit rings faint
+  ctx.strokeStyle = 'rgba(100,116,139,0.15)';
+  ctx.lineWidth = 1;
+  for (let r = 50; r <= 200; r += 40) {
+    ctx.beginPath();
+    ctx.arc(CX, CY, r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // hazards
+  for (const hz of hazards) {
+    const h = pos(hz.ang, hz.rad);
+    ctx.fillStyle = '#f87171';
+    ctx.shadowColor = '#f87171';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(h.x, h.y, hz.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // orbs
+  for (const o of orbs) {
+    const op = pos(o.ang, o.rad);
+    ctx.fillStyle = '#6ee7b7';
+    ctx.shadowColor = '#6ee7b7';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(op.x, op.y, o.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // player
+  const p = pos(player.ang || 0, radius);
+  ctx.fillStyle = alive ? (spin >= 0 ? '#60a5fa' : '#fbbf24') : '#555';
+  ctx.shadowColor = alive ? (spin >= 0 ? '#60a5fa' : '#fbbf24') : '#000';
+  ctx.shadowBlur = alive ? 16 : 0;
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, player.r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // cooldown
+  if (cooldown > 0) {
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillRect(p.x - 14, p.y - player.r - 8, 28 * (1 - cooldown / 20), 3);
+  }
+
+  const dir = spin >= 0 ? 'cw' : 'ccw';
+  hud.textContent = 'Orbit Shift — ' + dir + ' — radius ' + Math.round(radius) + ' — score ' + Math.floor(score) + ' — best ' + best + (alive ? '' : ' — hit, press R');
+}
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+reset();
+loop();
+</script>
+</body>
+</html>
