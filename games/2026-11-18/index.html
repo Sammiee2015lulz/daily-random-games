@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Polarity Flip — 2026-11-18</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #070b12; color: #e0e8ff; font-family: system-ui, sans-serif; }
+  body { display: grid; place-items: center; }
+  canvas { background: radial-gradient(ellipse at center, #1a2332, #070b12); border-radius: 12px; box-shadow: 0 0 40px #000c; max-width: 96vw; max-height: 80vh; }
+  #hud { position: fixed; top: 12px; left: 16px; font-size: 14px; }
+  #help { position: fixed; bottom: 12px; left: 16px; opacity: .75; font-size: 13px; max-width: 90vw; }
+</style>
+</head>
+<body>
+<div id="hud">Polarity Flip</div>
+<div id="help">Arrows / WASD to move. Space to flip polarity (+ ↔ −). Attract opposite orbs to collect them. Same-polarity hazards hurt. R restart.</div>
+<canvas id="c" width="520" height="480"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const W = 520, H = 480;
+let best = Number(localStorage.getItem('polarity-flip-best') || 0);
+let player, orbs, hazards, score, alive, frame, keys = {}, polarity, cooldown;
+
+function reset() {
+  player = { x: W / 2, y: H / 2, r: 12, vx: 0, vy: 0 };
+  orbs = [];
+  hazards = [];
+  score = 0;
+  alive = true;
+  frame = 0;
+  polarity = 0; // 0 = +, yellow; 1 = -, blue
+  cooldown = 0;
+  for (let i = 0; i < 7; i++) spawnOrb();
+  for (let i = 0; i < 3; i++) spawnHazard();
+}
+function spawnOrb() {
+  orbs.push({
+    x: 40 + Math.random() * (W - 80),
+    y: 40 + Math.random() * (H - 80),
+    r: 6 + Math.random() * 3,
+    vx: (Math.random() - 0.5) * 0.5,
+    vy: (Math.random() - 0.5) * 0.5,
+    pol: Math.random() < 0.5 ? 0 : 1
+  });
+}
+function spawnHazard() {
+  hazards.push({
+    x: 50 + Math.random() * (W - 100),
+    y: 50 + Math.random() * (H - 100),
+    r: 9 + Math.random() * 4,
+    vx: (Math.random() - 0.5) * 0.8,
+    vy: (Math.random() - 0.5) * 0.8,
+    pol: Math.random() < 0.5 ? 0 : 1
+  });
+}
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if (k === ' ' || k === 'spacebar') {
+    e.preventDefault();
+    if (cooldown <= 0 && alive) {
+      polarity = 1 - polarity;
+      cooldown = 20;
+    }
+  }
+  if (k === 'r') reset();
+});
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+function applyMagnet(obj, strength) {
+  const dx = player.x - obj.x;
+  const dy = player.y - obj.y;
+  const dist = Math.hypot(dx, dy) || 1;
+  const force = strength / (dist * dist + 400);
+  obj.vx += (dx / dist) * force;
+  obj.vy += (dy / dist) * force;
+}
+
+function update() {
+  if (!alive) return;
+  frame++;
+  score += 0.04;
+  if (cooldown > 0) cooldown--;
+
+  if (keys['arrowleft'] || keys['a']) player.vx -= 0.55;
+  if (keys['arrowright'] || keys['d']) player.vx += 0.55;
+  if (keys['arrowup'] || keys['w']) player.vy -= 0.55;
+  if (keys['arrowdown'] || keys['s']) player.vy += 0.55;
+  player.vx *= 0.89;
+  player.vy *= 0.89;
+  player.x += player.vx;
+  player.y += player.vy;
+
+  if (player.x < player.r) { player.x = player.r; player.vx *= -0.5; }
+  if (player.x > W - player.r) { player.x = W - player.r; player.vx *= -0.5; }
+  if (player.y < player.r) { player.y = player.r; player.vy *= -0.5; }
+  if (player.y > H - player.r) { player.y = H - player.r; player.vy *= -0.5; }
+
+  for (const o of orbs) {
+    const opposite = o.pol !== polarity;
+    applyMagnet(o, opposite ? 180 : -140);
+    o.x += o.vx;
+    o.y += o.vy;
+    o.vx *= 0.98;
+    o.vy *= 0.98;
+    if (o.x < o.r || o.x > W - o.r) o.vx *= -1;
+    if (o.y < o.r || o.y > H - o.r) o.vy *= -1;
+  }
+
+  for (const hz of hazards) {
+    const opposite = hz.pol !== polarity;
+    applyMagnet(hz, opposite ? -120 : 80);
+    hz.x += hz.vx;
+    hz.y += hz.vy;
+    hz.vx *= 0.99;
+    hz.vy *= 0.99;
+    if (hz.x < hz.r || hz.x > W - hz.r) hz.vx *= -1;
+    if (hz.y < hz.r || hz.y > H - hz.r) hz.vy *= -1;
+    if (hz.pol === polarity && Math.hypot(player.x - hz.x, player.y - hz.y) < player.r + hz.r - 1) {
+      alive = false;
+    }
+  }
+  if (frame % 250 === 0 && hazards.length < 5) spawnHazard();
+
+  for (let i = orbs.length - 1; i >= 0; i--) {
+    const o = orbs[i];
+    if (o.pol !== polarity && Math.hypot(player.x - o.x, player.y - o.y) < player.r + o.r + 4) {
+      score += 25;
+      orbs.splice(i, 1);
+      spawnOrb();
+    }
+  }
+  if (orbs.length < 6) spawnOrb();
+
+  if (Math.floor(score) > best) {
+    best = Math.floor(score);
+    localStorage.setItem('polarity-flip-best', String(best));
+  }
+}
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  ctx.fillStyle = polarity === 0 ? 'rgba(251,191,36,0.04)' : 'rgba(96,165,250,0.04)';
+  ctx.fillRect(0, 0, W, H);
+
+  for (const hz of hazards) {
+    const matching = hz.pol === polarity;
+    ctx.globalAlpha = matching ? 1 : 0.45;
+    ctx.fillStyle = '#f87171';
+    ctx.shadowColor = matching ? '#f87171' : 'transparent';
+    ctx.shadowBlur = matching ? 8 : 0;
+    ctx.beginPath();
+    ctx.arc(hz.x, hz.y, hz.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+  }
+
+  for (const o of orbs) {
+    const matching = o.pol === polarity;
+    ctx.globalAlpha = matching ? 0.6 : 1;
+    ctx.fillStyle = o.pol === 0 ? '#fbbf24' : '#60a5fa';
+    ctx.shadowColor = o.pol === 0 ? '#fbbf24' : '#60a5fa';
+    ctx.shadowBlur = matching ? 4 : 12;
+    ctx.beginPath();
+    ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.fillStyle = alive ? (polarity === 0 ? '#fbbf24' : '#60a5fa') : '#555';
+  ctx.shadowColor = alive ? (polarity === 0 ? '#fbbf24' : '#60a5fa') : '#000';
+  ctx.shadowBlur = alive ? 16 : 0;
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  if (cooldown > 0) {
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillRect(player.x - 14, player.y - player.r - 8, 28 * (1 - cooldown / 20), 3);
+  }
+
+  const polName = polarity === 0 ? '+' : '−';
+  hud.textContent = 'Polarity Flip — ' + polName + ' — score ' + Math.floor(score) + ' — best ' + best + (alive ? '' : ' — hit, press R');
+}
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+reset();
+loop();
+</script>
+</body>
+</html>
