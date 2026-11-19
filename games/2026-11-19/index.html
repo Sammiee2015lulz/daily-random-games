@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pulse Harvest — 2026-11-19</title>
+<title>Phase Shift — 2026-11-19</title>
 <style>
   html, body { margin: 0; height: 100%; background: #070b12; color: #e0e8ff; font-family: system-ui, sans-serif; }
   body { display: grid; place-items: center; }
@@ -13,27 +13,28 @@
 </style>
 </head>
 <body>
-<div id="hud">Pulse Harvest</div>
-<div id="help">Arrows / WASD to move. Space to emit a collecting pulse. Collect green orbs with the wave. Avoid red hazards. R restart.</div>
+<div id="hud">Phase Shift</div>
+<div id="help">Arrows / WASD to move. Space to phase (ghost through hazards briefly). Collect green orbs only while solid. Avoid red hazards. R restart.</div>
 <canvas id="c" width="520" height="480"></canvas>
 <script>
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 const hud = document.getElementById('hud');
 const W = 520, H = 480;
-let best = Number(localStorage.getItem('pulse-harvest-best') || 0);
-let player, orbs, hazards, pulses, score, alive, frame, keys = {}, cooldown;
+let best = Number(localStorage.getItem('phase-shift-best') || 0);
+let player, orbs, hazards, score, alive, frame, keys = {}, phased, phaseTimer, cooldown;
 
 function reset() {
-  player = { x: W / 2, y: H / 2, r: 11, vx: 0, vy: 0 };
+  player = { x: W / 2, y: H / 2, r: 12, vx: 0, vy: 0 };
   orbs = [];
   hazards = [];
-  pulses = [];
   score = 0;
   alive = true;
   frame = 0;
+  phased = false;
+  phaseTimer = 0;
   cooldown = 0;
-  for (let i = 0; i < 8; i++) spawnOrb();
+  for (let i = 0; i < 7; i++) spawnOrb();
   for (let i = 0; i < 3; i++) spawnHazard();
 }
 function spawnOrb() {
@@ -41,17 +42,17 @@ function spawnOrb() {
     x: 40 + Math.random() * (W - 80),
     y: 40 + Math.random() * (H - 80),
     r: 6 + Math.random() * 3,
-    vx: (Math.random() - 0.5) * 0.4,
-    vy: (Math.random() - 0.5) * 0.4
+    vx: (Math.random() - 0.5) * 0.5,
+    vy: (Math.random() - 0.5) * 0.5
   });
 }
 function spawnHazard() {
   hazards.push({
     x: 50 + Math.random() * (W - 100),
     y: 50 + Math.random() * (H - 100),
-    r: 10 + Math.random() * 5,
-    vx: (Math.random() - 0.5) * 0.6,
-    vy: (Math.random() - 0.5) * 0.6
+    r: 9 + Math.random() * 4,
+    vx: (Math.random() - 0.5) * 0.7,
+    vy: (Math.random() - 0.5) * 0.7
   });
 }
 addEventListener('keydown', e => {
@@ -59,9 +60,10 @@ addEventListener('keydown', e => {
   keys[k] = true;
   if (k === ' ' || k === 'spacebar') {
     e.preventDefault();
-    if (cooldown <= 0 && alive) {
-      pulses.push({ x: player.x, y: player.y, r: 8, maxR: 110, life: 0 });
-      cooldown = 45;
+    if (cooldown <= 0 && alive && !phased) {
+      phased = true;
+      phaseTimer = 60;
+      cooldown = 90;
     }
   }
   if (k === 'r') reset();
@@ -71,13 +73,17 @@ addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 function update() {
   if (!alive) return;
   frame++;
-  score += 0.03;
+  score += 0.035;
   if (cooldown > 0) cooldown--;
+  if (phaseTimer > 0) {
+    phaseTimer--;
+    if (phaseTimer <= 0) phased = false;
+  }
 
-  if (keys['arrowleft'] || keys['a']) player.vx -= 0.5;
-  if (keys['arrowright'] || keys['d']) player.vx += 0.5;
-  if (keys['arrowup'] || keys['w']) player.vy -= 0.5;
-  if (keys['arrowdown'] || keys['s']) player.vy += 0.5;
+  if (keys['arrowleft'] || keys['a']) player.vx -= 0.55;
+  if (keys['arrowright'] || keys['d']) player.vx += 0.55;
+  if (keys['arrowup'] || keys['w']) player.vy -= 0.55;
+  if (keys['arrowdown'] || keys['s']) player.vy += 0.55;
   player.vx *= 0.88;
   player.vy *= 0.88;
   player.x += player.vx;
@@ -88,7 +94,6 @@ function update() {
   if (player.y < player.r) { player.y = player.r; player.vy *= -0.4; }
   if (player.y > H - player.r) { player.y = H - player.r; player.vy *= -0.4; }
 
-  // orbs drift
   for (const o of orbs) {
     o.x += o.vx;
     o.y += o.vy;
@@ -96,7 +101,6 @@ function update() {
     if (o.y < o.r || o.y > H - o.r) o.vy *= -1;
   }
 
-  // hazards drift and hurt on contact
   for (const hz of hazards) {
     hz.x += hz.vx;
     hz.y += hz.vy;
@@ -104,39 +108,19 @@ function update() {
     hz.vy *= 0.995;
     if (hz.x < hz.r || hz.x > W - hz.r) hz.vx *= -1;
     if (hz.y < hz.r || hz.y > H - hz.r) hz.vy *= -1;
-    if (Math.hypot(player.x - hz.x, player.y - hz.y) < player.r + hz.r - 1) {
+    if (!phased && Math.hypot(player.x - hz.x, player.y - hz.y) < player.r + hz.r - 1) {
       alive = false;
     }
   }
-  if (frame % 280 === 0 && hazards.length < 5) spawnHazard();
+  if (frame % 260 === 0 && hazards.length < 5) spawnHazard();
 
-  // pulses expand and collect
-  for (let pi = pulses.length - 1; pi >= 0; pi--) {
-    const p = pulses[pi];
-    p.life++;
-    p.r += 3.2;
-    if (p.r >= p.maxR) {
-      pulses.splice(pi, 1);
-      continue;
-    }
+  if (!phased) {
     for (let i = orbs.length - 1; i >= 0; i--) {
       const o = orbs[i];
-      const dist = Math.hypot(p.x - o.x, p.y - o.y);
-      if (Math.abs(dist - p.r) < o.r + 6) {
-        score += 18;
+      if (Math.hypot(player.x - o.x, player.y - o.y) < player.r + o.r) {
+        score += 22;
         orbs.splice(i, 1);
         spawnOrb();
-      }
-    }
-    // pulse lightly pushes hazards away
-    for (const hz of hazards) {
-      const dist = Math.hypot(p.x - hz.x, p.y - hz.y);
-      if (Math.abs(dist - p.r) < hz.r + 8) {
-        const dx = hz.x - p.x;
-        const dy = hz.y - p.y;
-        const d = dist || 1;
-        hz.vx += (dx / d) * 1.8;
-        hz.vy += (dy / d) * 1.8;
       }
     }
   }
@@ -144,28 +128,12 @@ function update() {
 
   if (Math.floor(score) > best) {
     best = Math.floor(score);
-    localStorage.setItem('pulse-harvest-best', String(best));
+    localStorage.setItem('phase-shift-best', String(best));
   }
 }
 function draw() {
   ctx.clearRect(0, 0, W, H);
 
-  // pulses
-  for (const p of pulses) {
-    const alpha = 1 - p.r / p.maxR;
-    ctx.strokeStyle = `rgba(110, 231, 183, ${alpha * 0.9})`;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.strokeStyle = `rgba(167, 243, 208, ${alpha * 0.4})`;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.r - 4, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-
-  // hazards
   for (const hz of hazards) {
     ctx.fillStyle = '#f87171';
     ctx.shadowColor = '#f87171';
@@ -176,7 +144,6 @@ function draw() {
     ctx.shadowBlur = 0;
   }
 
-  // orbs
   for (const o of orbs) {
     ctx.fillStyle = '#6ee7b7';
     ctx.shadowColor = '#6ee7b7';
@@ -187,22 +154,24 @@ function draw() {
     ctx.shadowBlur = 0;
   }
 
-  // player
-  ctx.fillStyle = alive ? '#60a5fa' : '#555';
-  ctx.shadowColor = alive ? '#60a5fa' : '#000';
+  ctx.globalAlpha = phased ? 0.35 : 1;
+  ctx.fillStyle = alive ? (phased ? '#a78bfa' : '#60a5fa') : '#555';
+  ctx.shadowColor = alive ? (phased ? '#a78bfa' : '#60a5fa') : '#000';
   ctx.shadowBlur = alive ? 16 : 0;
   ctx.beginPath();
   ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
-    ctx.fill();
+  ctx.fill();
   ctx.shadowBlur = 0;
+  ctx.globalAlpha = 1;
 
-  // cooldown bar
-  if (cooldown > 0) {
-    ctx.fillStyle = 'rgba(255,255,255,0.35)';
-    ctx.fillRect(player.x - 16, player.y - player.r - 10, 32 * (1 - cooldown / 45), 3);
+  if (phased || cooldown > 0) {
+    const t = phased ? phaseTimer / 60 : 1 - cooldown / 90;
+    ctx.fillStyle = phased ? 'rgba(167,139,250,0.5)' : 'rgba(255,255,255,0.35)';
+    ctx.fillRect(player.x - 16, player.y - player.r - 10, 32 * Math.max(0, t), 3);
   }
 
-  hud.textContent = 'Pulse Harvest — score ' + Math.floor(score) + ' — best ' + best + (alive ? '' : ' — hit, press R');
+  const state = phased ? 'phased' : (cooldown > 0 ? 'cooling' : 'solid');
+  hud.textContent = 'Phase Shift — ' + state + ' — score ' + Math.floor(score) + ' — best ' + best + (alive ? '' : ' — hit, press R');
 }
 function loop() {
   update();
