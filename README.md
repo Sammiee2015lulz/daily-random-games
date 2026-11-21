@@ -2,12 +2,12 @@
 
 A tiny original browser game lands here every day.
 
-- Latest: [Pulse Catch (2026-11-20)](games/2026-11-20/index.html)
+- Latest: [Dash Snatch (2026-11-21)](games/2026-11-21/index.html)
 
 Open the HTML file, or download it and open it in a browser.
 
-## Pulse Catch
+## Dash Snatch
 
-Arrows / WASD to move. Space to pulse (collect nearby orbs, stun hazards). Avoid red hazards. R restart.
+Arrows / WASD to move. Space to dash (snatch orbs along the path, brief invulnerability). Avoid red hazards. R restart.
 
-Previous: [Phase Shift (2026-11-19)](games/2026-11-19/index.html)
+Previous: [Pulse Catch (2026-11-20)](games/2026-11-20/index.html)
