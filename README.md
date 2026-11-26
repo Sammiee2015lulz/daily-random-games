@@ -2,12 +2,12 @@
 
 A tiny original browser game lands here every day.
 
-- Latest: [Hue Shift (2026-11-25)](games/2026-11-25/index.html)
+- Latest: [Pulse Match (2026-11-26)](games/2026-11-26/index.html)
 
 Open the HTML file, or download it and open it in a browser.
 
-## Hue Shift
+## Pulse Match
 
-Arrows / WASD to move. Space to switch hue (cyan/magenta). Collect matching orbs. Avoid red hazards. R restart.
+Arrows / WASD to move. Size pulses. Collect orbs only when your size matches. Avoid red hazards. Space reverse pulse. R restart.
 
-Previous: [Orbital Drift (2026-11-24)](games/2026-11-24/index.html)
+Previous: [Hue Shift (2026-11-25)](games/2026-11-25/index.html)
