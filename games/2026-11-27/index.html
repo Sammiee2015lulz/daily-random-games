@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gravity Flip — 2026-11-27</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #070b12; color: #e0e8ff; font-family: system-ui, sans-serif; }
+  body { display: grid; place-items: center; }
+  canvas { background: radial-gradient(ellipse at center, #1a2332, #070b12); border-radius: 12px; box-shadow: 0 0 40px #000c; max-width: 96vw; max-height: 80vh; }
+  #hud { position: fixed; top: 12px; left: 16px; font-size: 14px; }
+  #help { position: fixed; bottom: 12px; left: 16px; opacity: .75; font-size: 13px; max-width: 90vw; }
+</style>
+</head>
+<body>
+<div id="hud">Gravity Flip</div>
+<div id="help">Left/Right or A/D to move. Space to flip gravity. Collect green orbs. Avoid red spikes. R restart.</div>
+<canvas id="c" width="520" height="480"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const W = 520, H = 480;
+let best = Number(localStorage.getItem('gravity-flip-best') || 0);
+let player, orbs, spikes, score, alive, frame, keys = {}, gravity;
+
+function reset() {
+  player = { x: W / 2, y: H / 2, w: 18, h: 18, vx: 0, vy: 0 };
+  orbs = [];
+  spikes = [];
+  score = 0;
+  alive = true;
+  frame = 0;
+  gravity = 0.28; // positive = down
+  for (let i = 0; i < 6; i++) spawnOrb();
+  for (let i = 0; i < 8; i++) spawnSpike();
+}
+function spawnOrb() {
+  orbs.push({
+    x: 40 + Math.random() * (W - 80),
+    y: 40 + Math.random() * (H - 80),
+    r: 7,
+    vx: (Math.random() - 0.5) * 0.3,
+    vy: (Math.random() - 0.5) * 0.3
+  });
+}
+function spawnSpike() {
+  const side = Math.random() < 0.5 ? 'floor' : 'ceil';
+  spikes.push({
+    x: 30 + Math.random() * (W - 60),
+    y: side === 'floor' ? H - 12 : 12,
+    side
+  });
+}
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if (k === ' ' || k === 'spacebar') {
+    e.preventDefault();
+    if (alive) gravity *= -1;
+  }
+  if (k === 'r') reset();
+});
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+function update() {
+  if (!alive) return;
+  frame++;
+  score += 0.04;
+
+  if (keys['arrowleft'] || keys['a']) player.vx -= 0.55;
+  if (keys['arrowright'] || keys['d']) player.vx += 0.55;
+  player.vx *= 0.92;
+  player.vy += gravity;
+  player.vy *= 0.99;
+  player.x += player.vx;
+  player.y += player.vy;
+
+  // walls
+  if (player.x < player.w / 2) { player.x = player.w / 2; player.vx *= -0.5; }
+  if (player.x > W - player.w / 2) { player.x = W - player.w / 2; player.vx *= -0.5; }
+  if (player.y < player.h / 2) { player.y = player.h / 2; player.vy = Math.abs(player.vy) * 0.3; }
+  if (player.y > H - player.h / 2) { player.y = H - player.h / 2; player.vy = -Math.abs(player.vy) * 0.3; }
+
+  // orbs
+  for (let i = orbs.length - 1; i >= 0; i--) {
+    const o = orbs[i];
+    o.x += o.vx;
+    o.y += o.vy;
+    if (o.x < o.r || o.x > W - o.r) o.vx *= -1;
+    if (o.y < o.r || o.y > H - o.r) o.vy *= -1;
+    if (Math.abs(player.x - o.x) < player.w / 2 + o.r && Math.abs(player.y - o.y) < player.h / 2 + o.r) {
+      score += 22;
+      orbs.splice(i, 1);
+      spawnOrb();
+    }
+  }
+  if (orbs.length < 5) spawnOrb();
+
+  // spikes
+  for (const s of spikes) {
+    const nearX = Math.abs(player.x - s.x) < 16;
+    if (nearX) {
+      if (s.side === 'floor' && player.y > H - 28) alive = false;
+      if (s.side === 'ceil' && player.y < 28) alive = false;
+    }
+  }
+  if (frame % 180 === 0 && spikes.length < 12) spawnSpike();
+
+  if (Math.floor(score) > best) {
+    best = Math.floor(score);
+    localStorage.setItem('gravity-flip-best', String(best));
+  }
+}
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // spikes
+  for (const s of spikes) {
+    ctx.fillStyle = '#f87171';
+    ctx.beginPath();
+    if (s.side === 'floor') {
+      ctx.moveTo(s.x - 10, H);
+      ctx.lineTo(s.x, H - 18);
+      ctx.lineTo(s.x + 10, H);
+    } else {
+      ctx.moveTo(s.x - 10, 0);
+      ctx.lineTo(s.x, 18);
+      ctx.lineTo(s.x + 10, 0);
+    }
+    ctx.fill();
+  }
+
+  // orbs
+  for (const o of orbs) {
+    ctx.fillStyle = '#6ee7b7';
+    ctx.shadowColor = '#6ee7b7';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // player
+  ctx.fillStyle = alive ? (gravity > 0 ? '#60a5fa' : '#fbbf24') : '#555';
+  ctx.shadowColor = alive ? (gravity > 0 ? '#60a5fa' : '#fbbf24') : '#000';
+  ctx.shadowBlur = alive ? 14 : 0;
+  ctx.fillRect(player.x - player.w / 2, player.y - player.h / 2, player.w, player.h);
+  ctx.shadowBlur = 0;
+
+  const dir = gravity > 0 ? 'down' : 'up';
+  hud.textContent = 'Gravity Flip — ' + dir + ' — score ' + Math.floor(score) + ' — best ' + best + (alive ? '' : ' — hit, press R');
+}
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+reset();
+loop();
+</script>
+</body>
+</html>
