@@ -2,12 +2,12 @@
 
 A tiny original browser game lands here every day.
 
-- Latest: [Gravity Flip (2026-11-27)](games/2026-11-27/index.html)
+- Latest: [Orbit Drift (2026-11-28)](games/2026-11-28/index.html)
 
 Open the HTML file, or download it and open it in a browser.
 
-## Gravity Flip
+## Orbit Drift
 
-Left/Right or A/D to move. Space to flip gravity. Collect green orbs. Avoid red spikes. R restart.
+A/D or Left/Right change spin speed. W/S or Up/Down change orbit radius. Space reverse spin. Collect green orbs. Avoid red hazards. R restart.
 
-Previous: [Pulse Match (2026-11-26)](games/2026-11-26/index.html)
+Previous: [Gravity Flip (2026-11-27)](games/2026-11-27/index.html)
